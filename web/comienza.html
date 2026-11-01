@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Comienza ahora · MorvehTV</title>
+  <meta name="description" content="Elige tu método de acceso y disfruta MorvehTV al instante: web, Android TV / Smart TV y iPhone / Mac." />
+  <meta property="og:title" content="MorvehTV · Comienza ahora" />
+  <meta property="og:description" content="Web, Android TV / Smart TV (código Downloader 4040796) e iPhone / Mac." />
+  <meta name="theme-color" content="#0b0b12" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23e31b23'/%3E%3Cpath d='M12 9.5v13l10.5-6.5z' fill='%23ffffff'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --fondo: #07070c;
+      --tarjeta: #0f1018;
+      --borde: rgba(255, 255, 255, 0.08);
+      --texto: #f4f5f8;
+      --texto-2: #8b8fa3;
+      --rojo: #e31b23;
+    }
+    * { box-sizing: border-box; margin: 0; }
+    body {
+      min-height: 100vh; display: grid; place-items: center; padding: 24px 16px;
+      background: radial-gradient(circle at 50% 0%, #1a0a10 0%, var(--fondo) 55%);
+      color: var(--texto); font-family: Inter, system-ui, sans-serif;
+    }
+    a { color: inherit; text-decoration: none; }
+
+    .anuncio {
+      width: min(100%, 520px); padding: 28px 24px 24px;
+      background: linear-gradient(180deg, #11121b, var(--tarjeta));
+      border: 1px solid var(--borde); border-radius: 22px;
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+    }
+    .marca { display: inline-flex; align-items: center; gap: 8px; font-weight: 800; font-size: 15px; margin-bottom: 18px; }
+    .marca b { color: var(--rojo); }
+    .marca-logo { width: 26px; height: 26px; border-radius: 7px; display: grid; place-items: center; background: var(--rojo); }
+    .marca-logo svg { width: 13px; height: 13px; }
+    h1 { font-size: clamp(30px, 7vw, 38px); font-weight: 800; letter-spacing: -0.02em; line-height: 1.1; }
+    .lema { color: var(--texto-2); font-size: 17px; line-height: 1.5; margin: 10px 0 24px; }
+
+    .opciones { display: grid; gap: 14px; }
+    .opcion {
+      --c: #22d3ee; --c-fondo: rgba(34, 211, 238, 0.07);
+      display: flex; align-items: center; gap: 16px; padding: 18px;
+      border-radius: 16px; border: 1px solid color-mix(in srgb, var(--c) 28%, transparent);
+      background: linear-gradient(100deg, var(--c-fondo), rgba(255, 255, 255, 0.015));
+      transition: transform 0.15s, border-color 0.15s, background 0.15s;
+    }
+    .opcion:hover, .opcion:focus-visible { transform: translateY(-2px); border-color: color-mix(in srgb, var(--c) 60%, transparent); outline: none; }
+    .opcion.tv { --c: #a78bfa; --c-fondo: rgba(167, 139, 250, 0.08); }
+    .opcion.ios { --c: #9ca3af; --c-fondo: rgba(156, 163, 175, 0.05); }
+    .icono {
+      flex: none; width: 50px; height: 50px; border-radius: 13px; display: grid; place-items: center;
+      background: color-mix(in srgb, var(--c) 14%, transparent); border: 1px solid color-mix(in srgb, var(--c) 35%, transparent); color: var(--c);
+    }
+    .icono svg { width: 24px; height: 24px; }
+    .texto { flex: 1; min-width: 0; }
+    .texto strong { display: block; font-size: 18px; font-weight: 700; }
+    .texto span { display: block; color: var(--texto-2); font-size: 14px; margin-top: 3px; }
+    .texto .codigo { display: inline-block; width: auto; margin-top: 7px; padding: 3px 9px; border-radius: 6px; background: rgba(167, 139, 250, 0.14); color: #ddd6fe; font-weight: 800; font-size: 15px; letter-spacing: 0.08em; font-variant-numeric: tabular-nums; }
+    .accion {
+      flex: none; width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center;
+      background: color-mix(in srgb, var(--c) 14%, transparent); color: var(--c);
+    }
+    .accion svg { width: 18px; height: 18px; }
+    .pie { margin-top: 20px; color: var(--texto-2); font-size: 13px; text-align: center; line-height: 1.5; }
+    .pie b { color: var(--texto); }
+    .copiado { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px); opacity: 0; padding: 10px 16px; border-radius: 10px; background: #1f2030; border: 1px solid var(--borde); font-size: 14px; transition: 0.2s; pointer-events: none; }
+    .copiado.ver { opacity: 1; transform: translate(-50%, 0); }
+
+    @media (max-width: 380px) {
+      .anuncio { padding: 22px 16px 18px; }
+      .opcion { padding: 14px; gap: 12px; }
+      .icono { width: 44px; height: 44px; }
+      .texto strong { font-size: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="anuncio">
+    <div class="marca">
+      <span class="marca-logo"><svg viewBox="0 0 24 24" fill="#fff"><path d="M8 5.14v13.72a1 1 0 0 0 1.5.86l11-6.86a1 1 0 0 0 0-1.72l-11-6.86A1 1 0 0 0 8 5.14Z"/></svg></span>
+      <span>Morveh<b>TV</b></span>
+    </div>
+    <h1>Comienza ahora</h1>
+    <p class="lema">Elige tu método de acceso y disfruta MorvehTV al instante.</p>
+
+    <div class="opciones">
+      <a class="opcion" href="https://morvehtv.es">
+        <span class="icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9S9.5 5.7 12 3Z"/></svg></span>
+        <span class="texto"><strong>Ver en Web</strong><span>Acceso online desde cualquier dispositivo</span></span>
+        <span class="accion"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></span>
+      </a>
+
+      <a class="opcion tv" href="https://aftv.news/4040796" data-codigo="4040796">
+        <span class="icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4M9 9.5l2 1.5-2 1.5"/></svg></span>
+        <span class="texto">
+          <strong>Android TV / Smart TV</strong>
+          <span>Instala en tu Smart TV con Downloader</span>
+          <span class="codigo">Código: 4040796</span>
+        </span>
+        <span class="accion"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg></span>
+      </a>
+
+      <a class="opcion ios" href="https://morvehtv.es">
+        <span class="icono"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.4 12.6c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.2-2.8.8-3.5.8-.7 0-1.9-.8-3-.8-1.6 0-3 .9-3.8 2.3-1.6 2.8-.4 7 1.2 9.3.8 1.1 1.7 2.4 2.9 2.3 1.2 0 1.6-.7 3-.7s1.8.7 3 .7c1.3 0 2.1-1.1 2.8-2.3.9-1.3 1.3-2.6 1.3-2.6s-2.5-1-2.5-3.7ZM14.2 5.8c.6-.8 1.1-1.8 1-2.8-.9 0-2 .6-2.6 1.4-.6.7-1.1 1.7-1 2.7 1 .1 2-.5 2.6-1.3Z"/></svg></span>
+        <span class="texto"><strong>iPhone / Mac</strong><span>Acceso web optimizado para iOS</span></span>
+        <span class="accion"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></span>
+      </a>
+    </div>
+
+    <p class="pie">En la tele: abre la app <b>Downloader</b>, escribe el código <b>4040796</b> y pulsa <b>Go</b>.</p>
+  </main>
+  <div class="copiado" id="copiado" role="status"></div>
+
+  <script>
+    // En la tarjeta de la tele, además de abrir el enlace, se copia el código al portapapeles
+    const aviso = document.getElementById('copiado');
+    document.querySelector('[data-codigo]').addEventListener('click', (ev) => {
+      const codigo = ev.currentTarget.dataset.codigo;
+      navigator.clipboard?.writeText(codigo).then(() => {
+        aviso.textContent = `Código ${codigo} copiado`;
+        aviso.classList.add('ver');
+        setTimeout(() => aviso.classList.remove('ver'), 2200);
+      }).catch(() => {});
+    });
+  </script>
+</body>
+</html>
