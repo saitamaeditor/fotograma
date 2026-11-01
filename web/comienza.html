@@ -41,10 +41,6 @@
     .logo b { color: var(--rojo); }
     .logo-icono { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; background: var(--rojo); box-shadow: 0 0 22px rgba(227, 27, 35, 0.55); }
     .logo-icono svg { width: 15px; height: 15px; }
-    .nav { display: flex; gap: 28px; margin-left: auto; font-weight: 600; color: var(--texto-2); }
-    .nav a { padding: 6px 0; border-bottom: 2px solid transparent; transition: color 0.15s; }
-    .nav a:hover { color: #fff; }
-    .nav a.activo { color: #fff; border-color: #fff; }
 
     /* Contenido */
     .principal { flex: 1; display: grid; grid-template-columns: 1.15fr 0.85fr; grid-template-areas: 'intro tarjeta' 'ventajas tarjeta'; column-gap: clamp(28px, 5vw, 70px); row-gap: 0; align-content: center; align-items: center; max-width: 1240px; width: 100%; margin: 0 auto; padding: 30px 0 120px; }
@@ -99,8 +95,7 @@
       .tarjeta { max-width: 560px; }
     }
     @media (max-width: 720px) {
-      .nav { display: none; }
-      .cabecera { padding: 18px 0; }
+        .cabecera { padding: 18px 0; }
       .muro { grid-template-columns: repeat(5, 1fr); }
       .tarjeta { padding: 24px 16px 20px; }
       .opcion { padding: 14px; gap: 12px; }
@@ -121,12 +116,6 @@
         <span class="logo-icono"><svg viewBox="0 0 24 24" fill="#fff"><path d="M8 5.14v13.72a1 1 0 0 0 1.5.86l11-6.86a1 1 0 0 0 0-1.72l-11-6.86A1 1 0 0 0 8 5.14Z"/></svg></span>
         <span>Morveh<b>TV</b></span>
       </a>
-      <nav class="nav">
-        <a href="/" class="activo">Inicio</a>
-        <a href="/ver#/peliculas">Películas</a>
-        <a href="/ver#/series">Series</a>
-        <a href="/ver#/documentales">Documentales</a>
-      </nav>
     </header>
 
     <main class="principal">
