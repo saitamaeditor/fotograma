@@ -28,7 +28,7 @@
     a { color: inherit; text-decoration: none; }
 
     /* Fondo: muro de carteles del catálogo, inclinado y oscurecido */
-    .muro { position: fixed; inset: -20%; z-index: 0; display: grid; grid-template-columns: repeat(9, 1fr); gap: 14px; transform: rotate(-12deg); opacity: 0.32; pointer-events: none; }
+    .muro { position: fixed; inset: -20%; z-index: 0; display: grid; grid-template-columns: repeat(9, 1fr); gap: 14px; transform: rotate(-12deg); opacity: 0.4; pointer-events: none; }
     .muro img, .muro span { width: 100%; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 10px; background: #161827; display: block; }
     .velo { position: fixed; inset: 0; z-index: 1; pointer-events: none;
       background: radial-gradient(ellipse at 30% 50%, rgba(10, 11, 20, 0.55), rgba(10, 11, 20, 0.92) 70%), linear-gradient(180deg, rgba(10, 11, 20, 0.7), rgba(10, 11, 20, 0.35) 40%, rgba(10, 11, 20, 0.95)); }
@@ -81,11 +81,6 @@
     .texto .codigo { display: inline-block; margin-top: 7px; padding: 3px 9px; border-radius: 6px; background: rgba(167, 139, 250, 0.14); color: #ddd6fe; font-weight: 800; font-size: 15px; letter-spacing: 0.08em; }
     .accion { flex: none; width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; color: var(--c); background: color-mix(in srgb, var(--c) 14%, transparent); }
     .accion svg { width: 18px; height: 18px; }
-    .catalogo { display: flex; align-items: center; gap: 16px; margin-top: 22px; padding: 18px; border-radius: 16px; border: 1px solid var(--borde); background: rgba(255, 255, 255, 0.02); }
-    .catalogo .icono { --c: var(--rosa); }
-    .catalogo small { display: block; color: var(--texto-3); font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
-    .catalogo p { font-size: 15px; color: var(--texto-3); margin-top: 3px; }
-    .catalogo p b { font-size: 28px; font-weight: 800; color: #fbbf24; margin-right: 6px; font-variant-numeric: tabular-nums; }
     .pie-tarjeta { margin-top: 16px; color: var(--texto-3); font-size: 13px; text-align: center; line-height: 1.5; }
     .pie-tarjeta b { color: #fff; }
 
@@ -186,10 +181,6 @@
           </a>
         </div>
 
-        <div class="catalogo" id="catalogo" hidden>
-          <span class="icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4"/></svg></span>
-          <div><small>Ya disponibles</small><p><b id="total">0</b>títulos para ver</p></div>
-        </div>
         <p class="pie-tarjeta">En la tele: abre la app <b>Downloader</b>, escribe el código <b>4040796</b> y pulsa <b>Go</b>.</p>
       </aside>
     </main>
@@ -202,16 +193,12 @@
   <div class="copiado" id="copiado" role="status"></div>
 
   <script>
-    // Fondo con los carteles del catálogo y número real de títulos disponibles
+    // Fondo con los carteles del catálogo
     fetch('/api/titulos?disponibles=1').then((r) => r.json()).then((lista) => {
       const carteles = lista.map((t) => t.poster).filter(Boolean);
       const muro = document.getElementById('muro');
       if (carteles.length) {
         muro.innerHTML = Array.from({ length: 90 }, (_, i) => `<img src="${carteles[i % carteles.length].replace('/w500/', '/w185/')}" alt="" loading="lazy" />`).join('');
-      }
-      if (lista.length) {
-        document.getElementById('total').textContent = lista.length.toLocaleString('es-ES');
-        document.getElementById('catalogo').hidden = false;
       }
     }).catch(() => {});
 
