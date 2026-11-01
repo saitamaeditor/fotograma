@@ -264,6 +264,17 @@ admin.put('/telegram', asinc(async (req, res) => res.json(await telegram.configu
 admin.get('/telegram/grupos', asinc(async (req, res) => res.json(await telegram.buscarGrupos())));
 admin.get('/telegram/temas', asinc(async (req, res) => res.json(await telegram.buscarTemas())));
 admin.post('/telegram/temas', asinc(async (req, res) => res.json(await telegram.crearTemas())));
+// Vuelve a publicar en Telegram el aviso de un título (por ejemplo, si fue al tema equivocado)
+admin.post('/telegram/avisar/:id', asinc(async (req, res) => {
+  const t = titulos.obtener(req.params.id);
+  if (!t) return res.status(404).json({ error: 'No existe ese título' });
+  if (!telegram.estado().configurado) return res.status(400).json({ error: 'Telegram no está configurado (mira Notificaciones)' });
+  if (!telegram.estado().activo) return res.status(400).json({ error: 'Los avisos de Telegram están en pausa' });
+  await telegram.avisar([{ id: t.id }]);
+  const ultimo = telegram.estado().historial[0];
+  if (!ultimo?.ok) return res.status(502).json({ error: ultimo?.error ?? 'No se pudo enviar' });
+  res.json({ ok: true });
+}));
 admin.post('/telegram/prueba', asinc(async (req, res) => { await telegram.probar(); res.json({ ok: true }); }));
 
 // Subida multiparte: el navegador sube los trozos directamente a e2 con URLs firmadas
