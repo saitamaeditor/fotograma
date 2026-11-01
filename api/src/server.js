@@ -338,7 +338,10 @@ app.put('/api/cuenta/contrasena', conCuenta, asinc(async (req, res) => { await c
 app.use('/api', (req, res) => res.status(404).json({ error: 'Ruta no encontrada' }));
 
 // ---------- Web ----------
-app.use(express.static(WEB, { extensions: ['html'] }));
+// morvehtv.es abre la bienvenida (comienza.html); el catálogo vive en /ver
+app.get(['/', '/comienza'], (req, res) => res.sendFile(join(WEB, 'comienza.html')));
+app.get('/ver', (req, res) => res.sendFile(join(WEB, 'index.html')));
+app.use(express.static(WEB, { extensions: ['html'], index: false }));
 
 app.use((err, req, res, next) => {
   const status = err.status ?? err.$metadata?.httpStatusCode ?? 500;

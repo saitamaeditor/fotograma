@@ -1,6 +1,5 @@
 import { api, esc, avisar, iconos } from './api.js';
 import * as cuenta from './cuenta.js';
-import { abrirAnuncio, anuncioSiToca } from './anuncio.js';
 
 const vista = document.getElementById('vista');
 const cabecera = document.getElementById('cabecera');
@@ -542,9 +541,6 @@ window.addEventListener('scroll', () => cabecera.classList.toggle('solida', wind
 window.addEventListener('hashchange', enrutar);
 enrutar();
 
-// Anuncio «Comienza ahora»: sale solo en la portada (la primera vez y cada 7 días) y desde el pie
-if (!location.hash || location.hash === '#/') anuncioSiToca();
-document.getElementById('abrir-anuncio')?.addEventListener('click', (ev) => { ev.preventDefault(); abrirAnuncio(); });
 
 // Botón de la cabecera: «Entrar» o el nombre del usuario
 const botonCuenta = document.getElementById('boton-cuenta');

@@ -163,7 +163,7 @@ function mensaje(t, episodios) {
     datos ? html(datos) : '',
     sinopsis ? `\n<i>${html(sinopsis)}</i>` : '',
   ].filter((l) => l !== '').join('\n');
-  return { foto: t.poster, texto, seccion, boton: { texto: '▶ Ver en MorvehTV', url: `${WEB}/#/titulo/${t.id}` } };
+  return { foto: t.poster, texto, seccion, boton: { texto: '▶ Ver en MorvehTV', url: `${WEB}/ver#/titulo/${t.id}` } };
 }
 
 // `novedades`: [{ id, temporada?, episodio? }]. Los episodios de una misma serie van en un solo mensaje.
