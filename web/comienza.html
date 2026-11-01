@@ -45,8 +45,6 @@
     .nav a { padding: 6px 0; border-bottom: 2px solid transparent; transition: color 0.15s; }
     .nav a:hover { color: #fff; }
     .nav a.activo { color: #fff; border-color: #fff; }
-    .boton-vip { display: inline-flex; align-items: center; gap: 8px; padding: 11px 20px; border-radius: 999px; background: linear-gradient(90deg, #d91a52, var(--rosa)); color: #fff; font-weight: 800; box-shadow: 0 8px 26px rgba(224, 36, 94, 0.35); }
-    .boton-vip svg { width: 16px; height: 16px; }
 
     /* Contenido */
     .principal { flex: 1; display: grid; grid-template-columns: 1.15fr 0.85fr; grid-template-areas: 'intro tarjeta' 'ventajas tarjeta'; column-gap: clamp(28px, 5vw, 70px); row-gap: 0; align-content: center; align-items: center; max-width: 1240px; width: 100%; margin: 0 auto; padding: 30px 0 120px; }
@@ -102,7 +100,6 @@
     }
     @media (max-width: 720px) {
       .nav { display: none; }
-      .boton-vip { margin-left: auto; padding: 9px 16px; font-size: 14px; }
       .cabecera { padding: 18px 0; }
       .muro { grid-template-columns: repeat(5, 1fr); }
       .tarjeta { padding: 24px 16px 20px; }
@@ -130,10 +127,6 @@
         <a href="/ver#/series">Series</a>
         <a href="/ver#/documentales">Documentales</a>
       </nav>
-      <a class="boton-vip" href="/ver#/cuenta">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 7l4.5 4L12 4l4.5 7L21 7l-2 12H5L3 7Z"/></svg>
-        Acceso VIP
-      </a>
     </header>
 
     <main class="principal">
