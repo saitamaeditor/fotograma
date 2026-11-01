@@ -2,26 +2,21 @@
   "expo": {
     "name": "MorvehTV",
     "slug": "fotograma",
-    "version": "1.4.0",
+    "version": "1.5.0",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "backgroundColor": "#141414",
-    "splash": {
-      "image": "./assets/adaptive-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#141414"
-    },
+    "backgroundColor": "#050507",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.fotograma.app"
     },
     "android": {
       "package": "com.fotograma.app",
-      "versionCode": 5,
+      "versionCode": 6,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#e31b23"
+        "backgroundColor": "#0b0206"
       }
     },
     "plugins": [
@@ -40,7 +35,16 @@
           }
         }
       ],
-      "./plugins/android-tv"
+      "./plugins/android-tv",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#050507",
+          "image": "./assets/adaptive-icon.png",
+          "imageWidth": 260,
+          "resizeMode": "contain"
+        }
+      ]
     ],
     "extra": {
       "apiUrl": "https://morvehtv.es",

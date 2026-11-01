@@ -5,6 +5,7 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 import { Inicio, Explorar, Series, MiLista, Ficha } from './src/pantallas';
 import { Reproductor } from './src/Reproductor';
 import { Enfocable } from './src/componentes';
+import { Intro } from './src/Intro';
 import { c } from './src/tema';
 
 const PESTANAS = [
@@ -65,10 +66,15 @@ function Navegador() {
   );
 }
 
+// La app carga por debajo mientras se ve la intro
 export default function App() {
+  const [intro, setIntro] = useState(true);
   return (
     <SafeAreaProvider>
-      <View style={e.raiz}><Navegador /></View>
+      <View style={e.raiz}>
+        <Navegador />
+        {intro && <Intro onFin={() => setIntro(false)} />}
+      </View>
     </SafeAreaProvider>
   );
 }

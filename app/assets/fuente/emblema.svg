@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="rojo" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ff4a52"/>
+      <stop offset="0.55" stop-color="#e31b23"/>
+      <stop offset="1" stop-color="#8f0009"/>
+    </linearGradient>
+    <linearGradient id="brillo" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.55"/>
+      <stop offset="0.35" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="halo" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="22" result="b"/>
+      <feFlood flood-color="#ff1e28" flood-opacity="0.75"/>
+      <feComposite in2="b" operator="in"/>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <g filter="url(#halo)">
+    <polygon fill="url(#rojo)" points="220,800 220,224 338,224 512,452 686,224 804,224 804,800 686,800 686,446 512,672 338,446 338,800"/>
+    <polygon fill="url(#brillo)" points="220,800 220,224 338,224 512,452 686,224 804,224 804,800 686,800 686,446 512,672 338,446 338,800"/>
+    <polygon fill="#fff" points="466,262 466,384 566,323"/>
+  </g>
+</svg>
