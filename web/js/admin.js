@@ -170,7 +170,9 @@ async function verCatalogo() {
     <div class="contenido-cab">
       <h1>Catálogo</h1>
       <input class="entrada" id="filtro" placeholder="Filtrar…" style="max-width:260px" />
+      <button class="btn btn-primario btn-chico" id="escanear">Buscar contenido nuevo</button>
     </div>
+    <p class="texto-3" id="escaneo-info" style="margin:-8px 0 14px;font-size:13px"></p>
     ${lista.length ? `
       <div class="caja tabla-scroll">
         <table class="tabla">
@@ -194,6 +196,28 @@ async function verCatalogo() {
           </tbody>
         </table>
       </div>` : '<div class="vacio"><h2>Catálogo vacío</h2><p>Ve a «Añadir título» para empezar.</p></div>'}`;
+
+  // Importador automático: los vídeos nuevos del bucket se dan de alta solos
+  const info = document.getElementById('escaneo-info');
+  const pintarEscaneo = (e) => {
+    const cuando = e.fecha ? new Date(e.fecha).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }) : 'todavía no';
+    const auto = e.cadaMinutos ? `Revisión automática del bucket cada ${e.cadaMinutos} min.` : 'Revisión automática apagada en este servidor.';
+    const errores = e.errores.map((x) => `${x.key ?? 'Bucket'}: ${x.error}`).join(' · ');
+    info.textContent = `${auto} Última: ${cuando}${e.nuevos.length ? ` · ${e.nuevos.length} añadidos` : ''}${errores ? ` · Sin importar: ${errores}` : ''}`;
+  };
+  api('/admin/escaneo').then(pintarEscaneo).catch(() => {});
+  document.getElementById('escanear').onclick = async (ev) => {
+    ev.currentTarget.disabled = true;
+    ev.currentTarget.textContent = 'Buscando…';
+    try {
+      const e = await api('/admin/escaneo', { metodo: 'POST' });
+      avisar(e.nuevos.length ? `Añadido: ${e.nuevos.map((n) => n.titulo).join(', ')}` : e.errores.length ? 'Hay vídeos que no se han podido importar' : 'No hay contenido nuevo');
+      verCatalogo();
+    } catch (err) {
+      avisar(err.message, true);
+      verCatalogo();
+    }
+  };
 
   const filtro = document.getElementById('filtro');
   filtro.oninput = () => {

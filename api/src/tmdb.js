@@ -31,9 +31,11 @@ async function pedir(ruta, params = {}) {
 
 const img = (ruta, tam) => (ruta ? `${IMG}/${tam}${ruta}` : null);
 
-export async function buscar(q, tipo) {
+// `anio` (opcional) afina la búsqueda de películas y series
+export async function buscar(q, tipo, anio) {
   const ruta = tipo === 'serie' ? '/search/tv' : tipo === 'pelicula' ? '/search/movie' : '/search/multi';
-  const { results = [] } = await pedir(ruta, { query: q, include_adult: 'false' });
+  const filtroAnio = anio && (tipo === 'serie' ? { first_air_date_year: anio } : tipo === 'pelicula' ? { year: anio } : {});
+  const { results = [] } = await pedir(ruta, { query: q, include_adult: 'false', ...filtroAnio });
   return results
     .filter((r) => r.media_type !== 'person')
     .map((r) => {

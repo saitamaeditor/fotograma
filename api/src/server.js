@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import * as e2 from './e2.js';
 import * as tmdb from './tmdb.js';
 import { titulos, iniciar as iniciarDb } from './db.js';
+import * as importador from './importador.js';
 import { deTipo, deTitulo, limpiar, detectar, carpeta } from './plataformas.js';
 
 const { PORT = 4000, ADMIN_KEY = '', CORS_ORIGINS = '*' } = process.env;
@@ -66,6 +67,7 @@ app.get('/api/estado', (req, res) => {
 });
 
 app.get('/api/titulos', (req, res) => {
+  importador.siHaceFalta();
   const { tipo, genero, q, disponibles, plataformas } = req.query;
   const texto = q?.toString().toLowerCase();
   let lista = titulos.todos();
@@ -84,6 +86,7 @@ app.get('/api/titulos', (req, res) => {
 // Portada de películas (o de series con ?tipo=serie): una fila por cada plataforma elegida
 // (?plataformas=netflix,prime). Sin el parámetro salen todas. Web y app usan lo mismo.
 app.get('/api/inicio', (req, res) => {
+  importador.siHaceFalta();
   const tipo = req.query.tipo === 'serie' ? 'serie' : 'pelicula';
   const disponibles = deTipo(tipo);
   const elegidas = req.query.plataformas ? limpiar(String(req.query.plataformas).split(',')) : disponibles.map((p) => p.id);
@@ -141,6 +144,10 @@ admin.use((req, res, next) => {
 });
 
 admin.get('/comprobar', (req, res) => res.json({ ok: true }));
+
+// Importador: vídeos nuevos del bucket → fichas de TMDB, sin tocar nada a mano
+admin.get('/escaneo', (req, res) => res.json(importador.estado()));
+admin.post('/escaneo', asinc(async (req, res) => res.json(await importador.escanear({ manual: true }))));
 
 admin.get('/titulos', (req, res) => res.json(titulos.todos().map((t) => ({ ...t, plataformasVistas: deTitulo(t) }))));
 
@@ -268,6 +275,7 @@ app.use((err, req, res, next) => {
 });
 
 const origenCatalogo = await iniciarDb();
+importador.iniciar();
 app.listen(PORT, () => {
   console.log(`Fotograma en http://localhost:${PORT}`);
   console.log(`  IDrive e2: ${e2.configurado ? `bucket "${e2.bucket}"` : 'SIN CONFIGURAR (rellena .env)'}`);

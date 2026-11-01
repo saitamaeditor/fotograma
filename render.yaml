@@ -29,6 +29,8 @@ services:
         sync: false
       - key: E2_CARPETA_SUBIDAS
         value: videos
+      - key: E2_ESCANEO_MINUTOS
+        value: "10"
       - key: E2_URL_MINUTOS
         value: "240"
       - key: TMDB_KEY
