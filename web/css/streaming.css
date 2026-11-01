@@ -206,3 +206,34 @@ h1, h2, h3 { font-weight: 800; letter-spacing: -0.02em; }
   .buscador:focus-within { width: 170px; }
   .cabecera-der { flex: none; }
 }
+
+/* Anuncio «Comienza ahora» (ventana sobre la web) */
+.anuncio-modal { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; padding: 16px; background: rgba(0, 0, 0, 0.72); backdrop-filter: blur(4px); opacity: 0; transition: opacity 0.2s; }
+.anuncio-modal.visible { opacity: 1; }
+.anuncio-caja { position: relative; width: min(100%, 500px); max-height: calc(100vh - 32px); overflow-y: auto; padding: 28px 22px 22px; background: linear-gradient(180deg, #13141e, #0f1018); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 22px; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6); transform: translateY(14px) scale(0.98); transition: transform 0.25s; }
+.anuncio-modal.visible .anuncio-caja { transform: none; }
+.anuncio-cerrar { position: absolute; top: 14px; right: 14px; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, 0.08); color: #fff; border: 0; cursor: pointer; }
+.anuncio-cerrar:hover { background: rgba(255, 255, 255, 0.16); }
+.anuncio-cerrar svg { width: 16px; height: 16px; }
+.anuncio-caja h2 { font-family: Inter, system-ui, sans-serif; font-size: clamp(28px, 7vw, 36px); font-weight: 800; letter-spacing: -0.02em; color: #fff; padding-right: 40px; }
+.anuncio-lema { color: #8b8fa3; font-size: 16px; line-height: 1.5; margin: 8px 0 22px; }
+.anuncio-opciones { display: grid; gap: 12px; }
+.anuncio-opcion { --c: #22d3ee; --c-fondo: rgba(34, 211, 238, 0.07); display: flex; align-items: center; gap: 14px; padding: 16px; border-radius: 16px; border: 1px solid color-mix(in srgb, var(--c) 28%, transparent); background: linear-gradient(100deg, var(--c-fondo), rgba(255, 255, 255, 0.015)); color: #f4f5f8; transition: transform 0.15s, border-color 0.15s; }
+.anuncio-opcion:hover, .anuncio-opcion:focus-visible { transform: translateY(-2px); border-color: color-mix(in srgb, var(--c) 60%, transparent); outline: none; }
+.anuncio-opcion.tv { --c: #a78bfa; --c-fondo: rgba(167, 139, 250, 0.08); }
+.anuncio-opcion.ios { --c: #9ca3af; --c-fondo: rgba(156, 163, 175, 0.05); }
+.anuncio-icono { flex: none; width: 48px; height: 48px; border-radius: 13px; display: grid; place-items: center; color: var(--c); background: color-mix(in srgb, var(--c) 14%, transparent); border: 1px solid color-mix(in srgb, var(--c) 35%, transparent); }
+.anuncio-icono svg { width: 23px; height: 23px; }
+.anuncio-texto { flex: 1; min-width: 0; }
+.anuncio-texto strong { display: block; font-size: 17px; font-weight: 700; }
+.anuncio-texto > span { display: block; color: #8b8fa3; font-size: 13.5px; margin-top: 3px; }
+.anuncio-texto .anuncio-codigo { display: inline-block; margin-top: 7px; padding: 3px 9px; border-radius: 6px; background: rgba(167, 139, 250, 0.14); color: #ddd6fe; font-weight: 800; font-size: 14px; letter-spacing: 0.08em; }
+.anuncio-accion { flex: none; width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; color: var(--c); background: color-mix(in srgb, var(--c) 14%, transparent); }
+.anuncio-accion svg { width: 17px; height: 17px; }
+.anuncio-pie { margin-top: 18px; color: #8b8fa3; font-size: 13px; text-align: center; line-height: 1.5; }
+.anuncio-pie b { color: #fff; }
+@media (max-width: 380px) {
+  .anuncio-caja { padding: 24px 14px 16px; }
+  .anuncio-opcion { padding: 13px; gap: 11px; }
+  .anuncio-icono { width: 42px; height: 42px; }
+}
