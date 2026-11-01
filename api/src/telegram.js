@@ -112,7 +112,7 @@ async function enviar({ foto, texto, boton, tipo }) {
     // Botones: ver en la web y, debajo, la app con su código de Downloader
     ...((boton || downloader) && { reply_markup: { inline_keyboard: [
       ...(boton ? [[{ text: boton.texto, url: boton.url }]] : []),
-      ...(downloader ? [[{ text: `📲 App · Código Downloader: ${downloader}`, url: `https://aftv.news/${downloader}` }]] : []),
+      ...(downloader ? [[{ text: `📲 APP MOVIL/TV · Código Downloader: ${downloader}`, url: `https://aftv.news/${downloader}` }]] : []),
     ] } }),
     ...(tema && { message_thread_id: Number(tema) }),
   };
