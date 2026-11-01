@@ -2,7 +2,7 @@
   "expo": {
     "name": "Fotograma",
     "slug": "fotograma",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -18,7 +18,7 @@
     },
     "android": {
       "package": "com.fotograma.app",
-      "versionCode": 3,
+      "versionCode": 4,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#e31b23"
@@ -43,7 +43,7 @@
       "./plugins/android-tv"
     ],
     "extra": {
-      "apiUrl": "http://192.168.1.140:4000",
+      "apiUrl": "https://morvehtv.es",
       "eas": {
         "projectId": "da7a3b66-b265-4f37-ab95-657323d323b1"
       }

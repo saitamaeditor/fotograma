@@ -311,7 +311,7 @@ export function Ajustes() {
       <Boton texto="Guardar y probar" onPress={probar} />
       {estado ? <Text style={{ color: estado.startsWith('Error') ? c.peligro : c.texto2 }}>{estado}</Text> : null}
       <Text style={{ color: c.texto3, fontSize: 12, marginTop: 'auto' }}>
-        En desarrollo usa la IP de tu ordenador en la red local (no «localhost»), p. ej. http://192.168.1.10:4000
+        Normalmente es https://morvehtv.es. Para probar con tu PC usa su IP en la red local, p. ej. http://192.168.1.10:4000
       </Text>
     </View>
   );
