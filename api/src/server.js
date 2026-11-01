@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as e2 from './e2.js';
 import * as tmdb from './tmdb.js';
-import { titulos, usuarios, iniciar as iniciarDb } from './db.js';
+import { titulos, usuarios, ajustes, exportar, iniciar as iniciarDb } from './db.js';
 import * as importador from './importador.js';
 import * as telegram from './telegram.js';
 import * as cuentas from './cuentas.js';
@@ -115,7 +115,9 @@ app.get('/api/inicio', (req, res) => {
     .map(({ id, nombre, color }) => ({ id, titulo: nombre, color, items: lista.filter((t) => t.plataformas.includes(id)) }))
     .filter((f) => f.items.length);
   const visibles = filas.flatMap((f) => f.items);
-  const destacado = visibles.find((t) => t.disponible && t.fondo) ?? visibles.find((t) => t.fondo) ?? null;
+  const elegidos = visibles.filter((t) => t.fondo && titulos.obtener(t.id)?.destacado);
+  const destacado = elegidos[Math.floor(Math.random() * elegidos.length)]
+    ?? visibles.find((t) => t.disponible && t.fondo) ?? visibles.find((t) => t.fondo) ?? null;
   res.json({ destacado, filas });
 });
 
@@ -124,6 +126,12 @@ app.get('/api/plataformas', (req, res) => {
   const cat = categoriaPedida(req);
   const vistas = titulos.todos().filter((t) => categoriaDe(t) === cat).map(deTitulo);
   res.json(deTipo(TIPO_BASE[cat]).map(({ id, nombre, color }) => ({ id, nombre, color, total: vistas.filter((p) => p.includes(id)).length })));
+});
+
+// Aviso del panel para la web (o null si no hay ninguno activo)
+app.get('/api/aviso', (req, res) => {
+  const a = ajustes.obtener('aviso');
+  res.set('Cache-Control', 'no-store').json(a?.activo ? { texto: a.texto, tipo: a.tipo, enlace: a.enlace, fecha: a.fecha } : null);
 });
 
 app.get('/api/generos', (req, res) => {
@@ -169,7 +177,81 @@ admin.get('/comprobar', (req, res) => res.json({ ok: true }));
 admin.get('/escaneo', (req, res) => res.json(importador.estado()));
 admin.post('/escaneo', asinc(async (req, res) => res.json(await importador.escanear({ manual: true }))));
 
-admin.get('/titulos', (req, res) => res.json(titulos.todos().map((t) => ({ ...t, plataformasVistas: deTitulo(t) }))));
+admin.get('/titulos', (req, res) => res.json(titulos.todos().map((t) => ({ ...t, plataformasVistas: deTitulo(t), categoria: categoriaDe(t), disponible: publico(t).disponible }))));
+
+// Resumen para la portada del panel: catálogo, almacenamiento, usuarios y servicios
+admin.get('/resumen', asinc(async (req, res) => {
+  const todos = titulos.todos();
+  const ahora = Date.now();
+  const porCategoria = { pelicula: 0, serie: 0, documental: 0, docuserie: 0 };
+  for (const t of todos) porCategoria[categoriaDe(t)] = (porCategoria[categoriaDe(t)] ?? 0) + 1;
+  const episodios = todos.filter((t) => t.tipo === 'serie').flatMap((t) => (t.temporadas ?? []).flatMap((s) => s.episodios));
+  const cuentas_ = usuarios.todos();
+  const veces = (clave) => {
+    const n = new Map();
+    for (const u of cuentas_) {
+      const ids = clave === 'fg-lista' ? (u.datos?.[clave] ?? []) : Object.keys(u.datos?.[clave] ?? {});
+      for (const id of ids) n.set(id, (n.get(id) ?? 0) + 1);
+    }
+    return [...n].sort((a, b) => b[1] - a[1]).slice(0, 5)
+      .map(([id, total]) => ({ id, titulo: titulos.obtener(id)?.titulo, total })).filter((x) => x.titulo);
+  };
+  let almacenamiento = null;
+  if (e2.configurado) {
+    try {
+      const videos = await e2.listarVideos();
+      almacenamiento = { videos: videos.length, bytes: videos.reduce((s, v) => s + (v.tamano ?? 0), 0) };
+    } catch { /* e2 no responde: se muestra sin esos datos */ }
+  }
+  res.json({
+    catalogo: {
+      total: todos.length,
+      porCategoria,
+      sinVideo: todos.filter((t) => !publico(t).disponible).map((t) => ({ id: t.id, titulo: t.titulo })),
+      episodios: episodios.length,
+      episodiosConVideo: episodios.filter((e) => e.videoKey).length,
+      destacados: todos.filter((t) => t.destacado).length,
+      ultimos: [...todos].sort((a, b) => (b.creado ?? '').localeCompare(a.creado ?? '')).slice(0, 5).map((t) => ({ id: t.id, titulo: t.titulo, creado: t.creado, poster: t.poster })),
+    },
+    almacenamiento,
+    usuarios: {
+      total: cuentas_.length,
+      nuevos7: cuentas_.filter((u) => ahora - Date.parse(u.creado) < 7 * 864e5).length,
+      activos24: cuentas_.filter((u) => (u.sesiones ?? []).some((s) => ahora - Date.parse(s.ultimo) < 864e5) || ahora - Date.parse(u.ultimo ?? 0) < 864e5).length,
+      dispositivos: cuentas_.reduce((s, u) => s + (u.sesiones ?? []).length, 0),
+      enListas: veces('fg-lista'),
+      masVistos: veces('fg-progreso'),
+    },
+    servicios: {
+      e2: e2.configurado,
+      tmdb: tmdb.configurado,
+      telegram: telegram.estado().configurado && telegram.estado().activo,
+      importador: importador.estado(),
+      version: process.env.RENDER_GIT_COMMIT?.slice(0, 7) ?? 'local',
+    },
+  });
+}));
+
+// Aviso que sale arriba en la web (novedades, mantenimiento…)
+admin.get('/aviso', (req, res) => res.json(ajustes.obtener('aviso') ?? { activo: false, texto: '', tipo: 'info', enlace: '' }));
+admin.put('/aviso', (req, res) => {
+  const { activo, texto, tipo, enlace } = req.body ?? {};
+  const aviso = {
+    activo: Boolean(activo) && Boolean(String(texto ?? '').trim()),
+    texto: String(texto ?? '').trim().slice(0, 240),
+    tipo: ['info', 'novedad', 'importante'].includes(tipo) ? tipo : 'info',
+    enlace: /^https?:\/\//.test(String(enlace ?? '')) ? String(enlace).slice(0, 300) : '',
+    fecha: new Date().toISOString(),
+  };
+  ajustes.guardar('aviso', aviso);
+  res.json(aviso);
+});
+
+// Copia de seguridad completa (catálogo, cuentas y ajustes) en un .json
+admin.get('/copia', (req, res) => {
+  res.attachment(`morvehtv-copia-${new Date().toISOString().slice(0, 10)}.json`);
+  res.send(JSON.stringify(exportar(), null, 2));
+});
 
 admin.get('/tmdb/buscar', asinc(async (req, res) => {
   const resultados = await tmdb.buscar(String(req.query.q ?? ''), req.query.tipo);

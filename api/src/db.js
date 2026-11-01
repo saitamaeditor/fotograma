@@ -48,6 +48,9 @@ function guardar() {
     .catch((err) => console.error('No se pudo guardar el catálogo en e2:', err.message));
 }
 
+// Copia completa de la base de datos (catálogo, cuentas y ajustes) para el panel
+export const exportar = () => datos;
+
 // Ajustes del panel (p. ej. el bot de Telegram); van en el mismo archivo que el catálogo
 export const ajustes = {
   obtener: (clave) => datos.ajustes?.[clave] ?? null,

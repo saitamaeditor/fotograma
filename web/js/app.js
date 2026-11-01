@@ -1,5 +1,6 @@
 import { api, esc, avisar, iconos } from './api.js';
 import * as cuenta from './cuenta.js';
+import { mostrarAviso } from './aviso.js';
 
 const vista = document.getElementById('vista');
 const cabecera = document.getElementById('cabecera');
@@ -717,6 +718,7 @@ document.querySelector('#buscador input').addEventListener('input', (ev) => {
 window.addEventListener('scroll', () => cabecera.classList.toggle('solida', window.scrollY > 40), { passive: true });
 window.addEventListener('hashchange', enrutar);
 enrutar();
+mostrarAviso(window.FOTOGRAMA_API ?? '');
 
 
 // Botón de la cabecera: «Entrar» o el nombre del usuario
