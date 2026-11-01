@@ -56,6 +56,11 @@ export const claves = {
     datos.claves = { ...datos.claves, [prefijo]: hex };
     guardar();
   },
+  borrar(prefijo) {
+    if (!datos.claves?.[prefijo]) return;
+    delete datos.claves[prefijo];
+    guardar();
+  },
 };
 
 // Copia completa de la base de datos (catálogo, cuentas y ajustes) para el panel

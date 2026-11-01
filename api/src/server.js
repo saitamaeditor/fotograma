@@ -381,6 +381,12 @@ admin.delete('/titulos/:id', asinc(async (req, res) => {
   if (req.query.borrarVideos === '1' && e2.configurado) {
     const keys = t.tipo === 'pelicula' ? [t.videoKey] : (t.temporadas ?? []).flatMap((s) => s.episodios.map((e) => e.videoKey));
     await Promise.all(keys.filter(Boolean).map((k) => e2.borrar(k)));
+    // Y su versión cifrada: los trozos de _hls/ y la clave
+    const cifrados = t.tipo === 'pelicula' ? [t.hls] : (t.temporadas ?? []).flatMap((s) => s.episodios.map((e) => e.hls));
+    for (const prefijo of cifrados.filter(Boolean)) {
+      await e2.borrarCarpeta(prefijo);
+      claves.borrar(prefijo);
+    }
   }
   res.json({ ok: true });
 }));

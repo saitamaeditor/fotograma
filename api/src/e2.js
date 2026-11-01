@@ -8,6 +8,7 @@ import {
   AbortMultipartUploadCommand,
   GetObjectCommand,
   DeleteObjectCommand,
+  DeleteObjectsCommand,
   HeadObjectCommand,
   ListObjectsV2Command,
   PutBucketCorsCommand,
@@ -140,6 +141,18 @@ export function guardarTexto(key, texto) {
   return cliente().send(
     new PutObjectCommand({ Bucket: bucket, Key: key, Body: texto, ContentType: 'application/json; charset=utf-8' }),
   );
+}
+
+// Borra una carpeta entera (p. ej. los trozos cifrados _hls/<id>/), de 1000 en 1000
+export async function borrarCarpeta(prefijo) {
+  const objetos = await listar(prefijo.endsWith('/') ? prefijo : `${prefijo}/`);
+  for (let i = 0; i < objetos.length; i += 1000) {
+    await cliente().send(new DeleteObjectsCommand({
+      Bucket: bucket,
+      Delete: { Objects: objetos.slice(i, i + 1000).map((o) => ({ Key: o.key })), Quiet: true },
+    }));
+  }
+  return objetos.length;
 }
 
 export function borrar(key) {
