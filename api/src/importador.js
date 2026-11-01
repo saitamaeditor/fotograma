@@ -11,6 +11,7 @@ import * as e2 from './e2.js';
 import * as tmdb from './tmdb.js';
 import { titulos } from './db.js';
 import { detectar, carpeta } from './plataformas.js';
+import * as telegram from './telegram.js';
 
 // Por defecto solo escanea el servidor publicado en Render (que define RENDER); en tu PC está
 // apagado para que dos servidores no den de alta lo mismo a la vez
@@ -106,7 +107,7 @@ async function importar(key) {
   }
   ep.videoKey = key;
   titulos.actualizar(t.id, { temporadas });
-  return { key, id: t.id, titulo: `${t.titulo} T${datos.temporada}:E${datos.episodio}`, tipo: t.tipo };
+  return { key, id: t.id, titulo: `${t.titulo} T${datos.temporada}:E${datos.episodio}`, tipo: t.tipo, temporada: datos.temporada, episodio: datos.episodio };
 }
 
 // Vídeos del bucket que ya están enlazados a alguna película o episodio
@@ -140,6 +141,8 @@ export function escanear({ manual = false } = {}) {
       errores.push({ key: null, error: err.message });
     }
     ultimo = { fecha: new Date().toISOString(), nuevos, errores };
+    // Aviso en Telegram de lo que ya se puede ver (si está configurado en el panel)
+    telegram.avisar(nuevos).catch((err) => console.error('Telegram:', err.message));
     if (nuevos.length || errores.length) {
       console.log(`Importador: ${nuevos.length} nuevos, ${errores.length} con error`);
       for (const e of errores) console.log(`  ✗ ${e.key}: ${e.error}`);

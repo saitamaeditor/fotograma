@@ -47,7 +47,7 @@ document.getElementById('pestanas').addEventListener('click', (ev) => {
 function abrirPestana(nombre) {
   for (const b of document.querySelectorAll('[data-pestana]')) b.classList.toggle('activo', b.dataset.pestana === nombre);
   contenido.innerHTML = '<div class="cargando"><div class="spinner"></div></div>';
-  const fn = { catalogo: verCatalogo, anadir: verAnadir, almacenamiento: verAlmacenamiento }[nombre];
+  const fn = { catalogo: verCatalogo, anadir: verAnadir, almacenamiento: verAlmacenamiento, notificaciones: verNotificaciones }[nombre];
   fn().catch((err) => (contenido.innerHTML = `<div class="vacio"><h2>Error</h2><p>${esc(err.message)}</p></div>`));
 }
 
@@ -480,6 +480,112 @@ async function verAnadir() {
 }
 
 // ---------- Almacenamiento ----------
+// ---------- Notificaciones en Telegram ----------
+async function verNotificaciones() {
+  const t = await api('/admin/telegram');
+  const fecha = (f) => new Date(f).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' });
+  contenido.innerHTML = `
+    <div class="contenido-cab">
+      <h1>Notificaciones</h1>
+      <span class="pildora ${t.configurado && t.activo ? 'ok' : 'medio'}">${t.configurado ? (t.activo ? 'Avisos activados' : 'Avisos en pausa') : 'Sin configurar'}</span>
+    </div>
+    <p class="texto-2" style="margin:-8px 0 20px">Cada vez que una película o un episodio nuevo se puede ver (al subirlo al bucket o al enlazarlo aquí), el bot lo publica en tu grupo de Telegram con su cartel y un botón para verlo.</p>
+
+    <div class="caja">
+      <h2>1. Bot de Telegram</h2>
+      <ol class="pasos">
+        <li>En Telegram abre <b>@BotFather</b>, escribe <code>/newbot</code> y sigue los pasos.</li>
+        <li>Copia el <b>token</b> que te da (algo como <code>123456789:AA…</code>) y pégalo aquí.</li>
+      </ol>
+      <form class="fila-form" id="form-token">
+        <label class="campo"><span>Token del bot ${t.token ? `(guardado: ${esc(t.token)})` : ''}</span>
+          <input name="token" type="password" autocomplete="off" placeholder="${t.token ? 'Déjalo vacío para mantener el actual' : '123456789:AA…'}" />
+        </label>
+        <button class="btn btn-primario">Guardar token</button>
+      </form>
+      ${t.bot ? `<p class="texto-3" style="margin-top:10px">Bot conectado: <b>@${esc(t.bot)}</b></p>` : ''}
+    </div>
+
+    <div class="caja">
+      <h2>2. Grupo</h2>
+      <ol class="pasos">
+        <li>Añade ${t.bot ? `<b>@${esc(t.bot)}</b>` : 'el bot'} a tu grupo (o canal, como administrador).</li>
+        <li>Escribe cualquier mensaje en el grupo y pulsa <b>Buscar grupos</b>.</li>
+      </ol>
+      <p style="margin-bottom:12px">Grupo actual: ${t.chatId ? `<b>${esc(t.chatNombre ?? t.chatId)}</b> <span class="texto-3">(${esc(t.chatId)})</span>` : '<span class="texto-3">ninguno</span>'}</p>
+      <div class="fila-form">
+        <button class="btn btn-secundario" id="buscar-grupos" ${t.bot ? '' : 'disabled'}>Buscar grupos</button>
+      </div>
+      <div id="grupos" style="margin-top:12px"></div>
+      <details style="margin-top:12px"><summary class="texto-3">Poner el ID del grupo a mano</summary>
+        <form class="fila-form" id="form-chat" style="margin-top:10px">
+          <label class="campo"><span>ID del grupo (p. ej. -1001234567890)</span><input name="chatId" value="${esc(t.chatId ?? '')}" /></label>
+          <button class="btn btn-secundario">Guardar</button>
+        </form>
+      </details>
+    </div>
+
+    <div class="caja">
+      <h2>3. Avisos</h2>
+      <label class="casilla" style="margin-bottom:14px"><input type="checkbox" id="activo" ${t.activo ? 'checked' : ''} ${t.configurado ? '' : 'disabled'} /> Avisar en Telegram de cada contenido nuevo</label>
+      <div class="fila-form"><button class="btn btn-primario" id="prueba" ${t.configurado ? '' : 'disabled'}>Enviar mensaje de prueba</button></div>
+      <h3 style="margin:18px 0 8px;font-size:15px">Últimos avisos</h3>
+      ${t.historial.length ? `<table class="tabla"><tbody>${t.historial.map((h) => `
+        <tr><td class="min">${h.ok ? '✅' : '❌'}</td><td><b>${esc(h.titulo)}</b>${h.error ? `<div class="texto-3">${esc(h.error)}</div>` : ''}</td><td class="min texto-3">${fecha(h.fecha)}</td></tr>`).join('')}</tbody></table>`
+        : '<p class="texto-3">Todavía no se ha enviado ninguno desde que arrancó el servidor.</p>'}
+    </div>`;
+
+  const guardar = async (cuerpo, mensaje) => {
+    try {
+      await api('/admin/telegram', { metodo: 'PUT', cuerpo });
+      avisar(mensaje);
+      verNotificaciones();
+    } catch (err) {
+      avisar(err.message, true);
+    }
+  };
+
+  document.getElementById('form-token').onsubmit = (ev) => {
+    ev.preventDefault();
+    const token = new FormData(ev.currentTarget).get('token').trim();
+    if (token) guardar({ token }, 'Bot conectado');
+  };
+  document.getElementById('form-chat').onsubmit = (ev) => {
+    ev.preventDefault();
+    guardar({ chatId: new FormData(ev.currentTarget).get('chatId').trim(), chatNombre: null }, 'Grupo guardado');
+  };
+  document.getElementById('activo').onchange = (ev) => guardar({ activo: ev.target.checked }, ev.target.checked ? 'Avisos activados' : 'Avisos en pausa');
+  document.getElementById('buscar-grupos').onclick = async (ev) => {
+    const caja = document.getElementById('grupos');
+    ev.currentTarget.disabled = true;
+    try {
+      const grupos = await api('/admin/telegram/grupos');
+      caja.innerHTML = grupos.length
+        ? grupos.map((g) => `<div class="fila-form" style="align-items:center;margin-bottom:6px"><span><b>${esc(g.nombre)}</b> <span class="texto-3">${esc(g.tipo)} · ${esc(g.id)}</span></span><button class="btn btn-primario btn-chico" data-id="${esc(g.id)}" data-nombre="${esc(g.nombre)}">Usar este</button></div>`).join('')
+        : '<p class="texto-3">No aparece ningún grupo. Comprueba que el bot está en el grupo, escribe un mensaje allí y vuelve a buscar.</p>';
+      caja.onclick = (e) => {
+        const b = e.target.closest('[data-id]');
+        if (b) guardar({ chatId: b.dataset.id, chatNombre: b.dataset.nombre }, `Avisos irán a «${b.dataset.nombre}»`);
+      };
+    } catch (err) {
+      avisar(err.message, true);
+    } finally {
+      ev.currentTarget.disabled = false;
+    }
+  };
+  document.getElementById('prueba').onclick = async (ev) => {
+    ev.currentTarget.disabled = true;
+    try {
+      await api('/admin/telegram/prueba', { metodo: 'POST' });
+      avisar('Mensaje de prueba enviado: míralo en el grupo');
+    } catch (err) {
+      avisar(err.message, true);
+    } finally {
+      ev.currentTarget.disabled = false;
+    }
+  };
+}
+
 async function verAlmacenamiento() {
   const objetos = await api('/admin/almacenamiento');
   const total = objetos.reduce((s, o) => s + o.tamano, 0);

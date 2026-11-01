@@ -6,6 +6,7 @@ import * as e2 from './e2.js';
 import * as tmdb from './tmdb.js';
 import { titulos, iniciar as iniciarDb } from './db.js';
 import * as importador from './importador.js';
+import * as telegram from './telegram.js';
 import { deTipo, deTitulo, limpiar, detectar, carpeta } from './plataformas.js';
 
 const { PORT = 4000, ADMIN_KEY = '', CORS_ORIGINS = '*' } = process.env;
@@ -221,7 +222,10 @@ admin.put('/titulos/:id/video', asinc(async (req, res) => {
     const cambios = { videoKey: key || null };
     // Si ya tiene plataformas elegidas, sumamos la que indique la carpeta del vídeo
     if (key && Array.isArray(t.plataformas)) cambios.plataformas = limpiar([...t.plataformas, ...detectar(carpeta(key), 'pelicula')]);
-    return res.json(titulos.actualizar(t.id, cambios));
+    const nuevo = key && !t.videoKey;
+    res.json(titulos.actualizar(t.id, cambios));
+    if (nuevo) telegram.avisar([{ id: t.id }]).catch(() => {});
+    return;
   }
   const temporadas = t.temporadas ?? [];
   let s = temporadas.find((x) => x.numero === Number(temporada));
@@ -236,11 +240,19 @@ admin.put('/titulos/:id/video', asinc(async (req, res) => {
     s.episodios.push(ep);
     s.episodios.sort((a, b) => a.numero - b.numero);
   }
+  const nuevo = key && !ep.videoKey;
   ep.videoKey = key || null;
   const cambios = { temporadas };
   if (key && Array.isArray(t.plataformas)) cambios.plataformas = limpiar([...t.plataformas, ...detectar(carpeta(key), 'serie')]);
   res.json(titulos.actualizar(t.id, cambios));
+  if (nuevo) telegram.avisar([{ id: t.id, temporada: s.numero, episodio: ep.numero }]).catch(() => {});
 }));
+
+// Avisos de contenido nuevo en un grupo de Telegram
+admin.get('/telegram', (req, res) => res.json(telegram.estado()));
+admin.put('/telegram', asinc(async (req, res) => res.json(await telegram.configurar(req.body ?? {}))));
+admin.get('/telegram/grupos', asinc(async (req, res) => res.json(await telegram.buscarGrupos())));
+admin.post('/telegram/prueba', asinc(async (req, res) => { await telegram.probar(); res.json({ ok: true }); }));
 
 // Subida multiparte: el navegador sube los trozos directamente a e2 con URLs firmadas
 admin.post('/subidas/iniciar', asinc(async (req, res) => {
