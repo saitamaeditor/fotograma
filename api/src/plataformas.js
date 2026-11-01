@@ -32,6 +32,10 @@ const ORDEN_PELICULAS = ['netflix', 'prime', 'disney', 'hbo', 'appletv', 'movist
 export const CATEGORIAS = ['pelicula', 'serie', 'documental', 'docuserie'];
 export const TIPO_BASE = { pelicula: 'pelicula', serie: 'serie', documental: 'pelicula', docuserie: 'serie' };
 export const esDocumental = (t) => (t.generos ?? []).some((g) => /documental|documentary/i.test(g));
+// Un vídeo en una carpeta como «05 - DOCUMENTALES» o «06 - DOCUSERIES» es documental aunque
+// TMDB no le ponga ese género (a muchos documentales no les pone ninguno)
+export const carpetaDocumental = (key) => /docu/i.test(carpeta(key));
+export const conDocumental = (generos = []) => (esDocumental({ generos }) ? generos : ['Documental', ...generos]);
 export const categoriaDe = (t) => (esDocumental(t) ? (t.tipo === 'serie' ? 'docuserie' : 'documental') : t.tipo);
 
 export function deTipo(tipo) {

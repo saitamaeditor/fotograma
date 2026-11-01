@@ -10,7 +10,7 @@
 import * as e2 from './e2.js';
 import * as tmdb from './tmdb.js';
 import { titulos } from './db.js';
-import { detectar, carpeta } from './plataformas.js';
+import { detectar, carpeta, esDocumental, carpetaDocumental, conDocumental } from './plataformas.js';
 import * as telegram from './telegram.js';
 
 // Por defecto solo escanea el servidor publicado en Render (que define RENDER); en tu PC está
@@ -86,6 +86,7 @@ async function importar(key) {
     if (enCarpeta.length) ficha.plataformas = enCarpeta;
     t = titulos.crear({ ...ficha, importado: true });
   }
+  if (carpetaDocumental(key) && !esDocumental(t)) t = titulos.actualizar(t.id, { generos: conDocumental(t.generos) });
 
   if (datos.tipo === 'pelicula') {
     titulos.actualizar(t.id, { videoKey: key });
