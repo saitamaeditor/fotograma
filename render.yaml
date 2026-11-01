@@ -4,6 +4,8 @@ services:
   - type: web
     name: fotograma
     runtime: node
+    plan: free
+    region: frankfurt
     rootDir: api
     buildCommand: npm ci
     startCommand: npm start
@@ -25,8 +27,6 @@ services:
         sync: false
       - key: E2_SECRET_ACCESS_KEY
         sync: false
-      - key: E2_CARPETAS
-        value: ""
       - key: E2_CARPETA_SUBIDAS
         value: videos
       - key: E2_URL_MINUTOS
