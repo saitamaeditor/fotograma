@@ -78,3 +78,7 @@
   .estado { display: none; }
   #salir { margin-left: auto; }
 }
+
+.casillas { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 6px; }
+.casilla { display: flex; align-items: center; gap: 8px; padding: 9px 10px; background: var(--fondo); border: 1px solid var(--borde); border-radius: 6px; color: var(--texto); cursor: pointer; }
+.casilla input { width: 16px; height: 16px; margin: 0; accent-color: #2f6fed; }

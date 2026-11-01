@@ -50,6 +50,23 @@ export const progreso = {
   },
 };
 
+// Plataformas (Netflix, Prime Video…) y las que ha elegido el espectador
+let plataformas = [];
+export async function cargarPlataformas() {
+  plataformas = await api('/plataformas');
+  return plataformas;
+}
+export const infoPlataforma = (id) => plataformas.find((p) => p.id === id) ?? { id, nombre: id, color: '#555' };
+
+export const misPlataformas = {
+  // Sin elección guardada se ven todas
+  async obtener() {
+    const guardadas = await leer('fg-plataformas', null);
+    return guardadas ?? plataformas.map((p) => p.id);
+  },
+  guardar: (ids) => AsyncStorage.setItem('fg-plataformas', JSON.stringify(ids)),
+};
+
 export function siguienteEpisodio(t, temporada, episodio) {
   const lista = (t.temporadas ?? []).flatMap((s) =>
     s.episodios.filter((e) => e.disponible).map((e) => ({ t: s.numero, e: e.numero, ep: e })),

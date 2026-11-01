@@ -129,3 +129,43 @@ h1, h2, h3 { font-weight: 800; letter-spacing: -0.02em; }
   .puesto { font-size: 100px; }
   .nav-movil a.activo { color: #fff; }
 }
+
+/* ---------- Selector de plataformas ---------- */
+.plataformas { margin: 0 var(--lado) 36px; padding: 18px; background: #1a1a22; border: 1px solid #2a2a35; border-radius: 8px; position: relative; z-index: 3; }
+.pagina .plataformas { margin: 0 0 28px; }
+.plataformas-cab { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 14px; }
+.plataformas-cab h2 { font-size: 18px; color: #fff; }
+.plataformas-resumen { font-size: 13px; color: var(--texto-2); }
+.plataformas-resumen b { color: #fff; font-weight: 600; }
+.plataformas-rejilla { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.plataforma {
+  display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px;
+  padding: 13px 14px; background: #20202a; border: 1px solid transparent; border-radius: 6px; cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.plataforma:hover { background: #272733; }
+.plataforma.activa { background: #262632; }
+.plataforma input { width: 18px; height: 18px; margin: 0; accent-color: #2f6fed; cursor: pointer; }
+.plataforma-nombre { font-weight: 600; color: #e8e8ee; }
+.plataforma.activa .plataforma-nombre { color: #fff; }
+.plataforma-total { font-size: 12px; color: var(--texto-3); }
+
+.fila-cab h2 { display: inline-flex; align-items: center; gap: 10px; }
+.punto { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.fila-total { font-size: 13px; color: var(--texto-3); }
+
+/* ---------- Etiquetas de plataforma ---------- */
+.plat-etiquetas { position: absolute; top: 6px; right: 6px; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; max-width: 70%; }
+.plat-etiqueta {
+  background: var(--plat); color: #fff; font-size: 10px; font-weight: 700; letter-spacing: 0.02em;
+  padding: 2px 6px; border-radius: 3px; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5); white-space: nowrap;
+}
+.plat-etiquetas.en-linea { position: static; max-width: none; justify-content: flex-start; }
+.plat-etiquetas.en-linea .plat-etiqueta { font-size: 11px; padding: 2px 8px; }
+
+@media (max-width: 760px) {
+  .plataformas { padding: 14px; }
+  .plataformas-rejilla { grid-template-columns: 1fr 1fr; }
+  .plataforma { grid-template-columns: auto 1fr; padding: 11px; gap: 10px; }
+  .plataforma-total { display: none; }
+}

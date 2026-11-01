@@ -35,17 +35,23 @@ const progreso = {
 // ---------- Plantillas ----------
 // En filas: tarjeta horizontal (imagen de fondo) que se amplía con info al pasar el ratón.
 // En rejillas: cartel vertical.
-function tarjeta(t, { vertical = false, puesto } = {}) {
+// Etiquetas de color con las plataformas de una película
+const etiquetasPlataforma = (t) =>
+  (t.plataformas ?? []).length
+    ? `<span class="plat-etiquetas">${t.plataformas.map((p) => `<span class="plat-etiqueta" style="--plat:${esc(colorPlataforma(p))}">${esc(nombrePlataforma(p))}</span>`).join('')}</span>`
+    : '';
+
+function tarjeta(t, { vertical = false } = {}) {
   const p = progreso.de(t.id);
   const pct = p?.duracion ? Math.min(100, (p.segundo / p.duracion) * 100) : 0;
   const imagen = vertical ? t.poster : t.fondo ?? t.poster;
   return `
-    <a class="tarjeta ${vertical ? 'vertical' : 'horizontal'} ${puesto ? 'top' : ''}" href="#/titulo/${t.id}">
-      ${puesto ? `<span class="puesto" aria-hidden="true">${puesto}</span>` : ''}
+    <a class="tarjeta ${vertical ? 'vertical' : 'horizontal'}" href="#/titulo/${t.id}">
       <div class="tarjeta-img">
-        ${imagen ? `<img src="${esc(puesto ? t.poster ?? imagen : imagen)}" alt="" loading="lazy" />` : ''}
-        ${!vertical && !puesto ? `<span class="tarjeta-nombre">${esc(t.titulo)}</span>` : ''}
+        ${imagen ? `<img src="${esc(imagen)}" alt="" loading="lazy" />` : ''}
+        ${!vertical ? `<span class="tarjeta-nombre">${esc(t.titulo)}</span>` : ''}
         ${!imagen ? `<div class="tarjeta-sin">${esc(t.titulo)}</div>` : ''}
+        ${etiquetasPlataforma(t)}
         ${t.disponible ? '' : '<span class="insignia pronto">Próximamente</span>'}
         ${pct > 1 ? `<div class="progreso"><span style="width:${pct}%"></span></div>` : ''}
       </div>
@@ -68,13 +74,16 @@ function tarjeta(t, { vertical = false, puesto } = {}) {
     </a>`;
 }
 
-function fila(titulo, items, top = false) {
+function fila(titulo, items, color) {
   return `
-    <section class="fila ${top ? 'fila-top' : ''}">
-      <div class="fila-cab"><h2>${esc(titulo)}</h2></div>
+    <section class="fila">
+      <div class="fila-cab">
+        <h2>${color ? `<span class="punto" style="background:${esc(color)}"></span>` : ''}${esc(titulo)}</h2>
+        <span class="fila-total">${items.length} ${items.length === 1 ? 'película' : 'películas'}</span>
+      </div>
       <div class="fila-pista">
         <button class="flecha izq" aria-label="Anterior">${iconos.izq}</button>
-        <div class="carrusel">${items.map((t, i) => tarjeta(t, top ? { puesto: i + 1 } : {})).join('')}</div>
+        <div class="carrusel">${items.map((t) => tarjeta(t)).join('')}</div>
         <button class="flecha der" aria-label="Siguiente">${iconos.der}</button>
       </div>
     </section>`;
@@ -88,6 +97,7 @@ function meta(t) {
       ${t.duracion && t.tipo === 'pelicula' ? `<span>${Math.floor(t.duracion / 60)} h ${t.duracion % 60} min</span>` : ''}
       ${t.temporadas?.length ? `<span>${t.temporadas.length} temporada${t.temporadas.length > 1 ? 's' : ''}</span>` : ''}
       <span class="etiqueta">${t.tipo === 'serie' ? 'Serie' : 'Película'}</span>
+      ${etiquetasPlataforma(t).replace('plat-etiquetas', 'plat-etiquetas en-linea')}
       ${(t.generos ?? []).slice(0, 3).map((g) => `<span>${esc(g)}</span>`).join('<span>·</span>')}
     </div>`;
 }
@@ -103,18 +113,52 @@ function activarCarruseles() {
   }
 }
 
+// ---------- Plataformas elegidas por el espectador ----------
+let plataformas = []; // [{ id, nombre, color, total }] desde la API
+const nombrePlataforma = (id) => plataformas.find((p) => p.id === id)?.nombre ?? id;
+const colorPlataforma = (id) => plataformas.find((p) => p.id === id)?.color ?? '#555';
+// Sin elección guardada se ven todas
+const elegidas = () => leer('fg-plataformas', null) ?? plataformas.map((p) => p.id);
+
+async function cargarPlataformas() {
+  if (!plataformas.length) plataformas = await api('/plataformas');
+}
+
+function selectorPlataformas() {
+  const sel = elegidas();
+  const resumen = sel.length === plataformas.length ? 'Todas las plataformas' : sel.length ? sel.map(nombrePlataforma).join(', ') : 'Ninguna plataforma';
+  return `
+    <section class="plataformas" aria-labelledby="plat-titulo">
+      <div class="plataformas-cab">
+        <h2 id="plat-titulo">Mis plataformas</h2>
+        <span class="plataformas-resumen">Mostrando: <b>${esc(resumen)}</b></span>
+      </div>
+      <div class="plataformas-rejilla">
+        ${plataformas.map((p) => `
+          <label class="plataforma ${sel.includes(p.id) ? 'activa' : ''}" style="--plat:${esc(p.color)}">
+            <input type="checkbox" value="${p.id}" ${sel.includes(p.id) ? 'checked' : ''} />
+            <span class="plataforma-nombre">${esc(p.nombre)}</span>
+            <span class="plataforma-total">${p.total} ${p.total === 1 ? 'película' : 'películas'}</span>
+          </label>`).join('')}
+      </div>
+    </section>`;
+}
+
+// Al marcar o desmarcar una plataforma se guarda la elección y se repinta la vista
+function activarSelector(repintar) {
+  vista.querySelector('.plataformas-rejilla')?.addEventListener('change', () => {
+    const marcadas = [...vista.querySelectorAll('.plataformas-rejilla input:checked')].map((i) => i.value);
+    escribir('fg-plataformas', marcadas);
+    repintar();
+  });
+}
+
 // ---------- Vistas ----------
 async function verInicio() {
-  const { destacado, filas } = await api('/inicio');
-  if (!filas.length) {
-    vista.innerHTML = `<div class="pagina">${vacio('El catálogo está vacío', 'Entra en /admin para añadir películas y series.')}</div>`;
-    return;
-  }
-  const todos = new Map(filas.flatMap((f) => f.items).map((t) => [t.id, t]));
-  const seguir = Object.entries(progreso.todo())
-    .sort((a, b) => b[1].fecha - a[1].fecha)
-    .map(([id]) => todos.get(id))
-    .filter(Boolean);
+  await cargarPlataformas();
+  const sel = elegidas();
+  const { destacado, filas } = sel.length ? await api(`/inicio?plataformas=${sel.join(',')}`) : { destacado: null, filas: [] };
+  const y = window.scrollY;
 
   vista.innerHTML = `
     ${destacado ? `
@@ -131,38 +175,33 @@ async function verInicio() {
         </div>
       </section>` : '<div style="height:90px"></div>'}
     <div class="filas">
-      ${seguir.length ? fila('Seguir viendo', seguir) : ''}
-      ${filas.map((f) => (f.titulo === 'Mejor valorados' ? fila('Top 10 en Fotograma', f.items.slice(0, 10), true) : fila(f.titulo, f.items))).join('')}
+      ${selectorPlataformas()}
+      ${filas.length
+        ? filas.map((f) => fila(f.titulo, f.items, f.color)).join('')
+        : vacio(sel.length ? 'Sin películas' : 'Elige una plataforma', sel.length ? 'Todavía no hay películas en las plataformas elegidas.' : 'Marca arriba las plataformas que quieres ver.')}
     </div>`;
   activarCarruseles();
+  activarSelector(async () => { await verInicio(); window.scrollTo(0, y); });
 }
 
-async function verCatalogo(tipo) {
-  const titulo = { pelicula: 'Películas', serie: 'Series' }[tipo];
-  const params = new URLSearchParams(location.hash.split('?')[1]);
-  const genero = params.get('genero') ?? '';
-  const [lista, generos] = await Promise.all([
-    api(`/titulos?tipo=${tipo}${genero ? `&genero=${encodeURIComponent(genero)}` : ''}`),
-    api('/generos'),
-  ]);
-  const base = tipo === 'serie' ? '#/series' : '#/peliculas';
+async function verCatalogo() {
+  await cargarPlataformas();
+  const sel = elegidas();
+  const lista = sel.length ? await api(`/titulos?tipo=pelicula&plataformas=${sel.join(',')}`) : [];
   vista.innerHTML = `
     <div class="pagina">
-      <div class="pagina-cab">
-        <h1>${titulo}</h1>
-        <div class="chips">
-          <a class="chip ${genero ? '' : 'activo'}" href="${base}">Todo</a>
-          ${generos.map((g) => `<a class="chip ${g === genero ? 'activo' : ''}" href="${base}?genero=${encodeURIComponent(g)}">${esc(g)}</a>`).join('')}
-        </div>
-      </div>
-      ${lista.length ? `<div class="rejilla">${lista.map((t) => tarjeta(t, { vertical: true })).join('')}</div>` : vacio('Nada por aquí', 'Todavía no hay títulos en esta sección.')}
+      <div class="pagina-cab"><h1>Películas</h1></div>
+      ${selectorPlataformas()}
+      ${lista.length ? `<div class="rejilla">${lista.map((t) => tarjeta(t, { vertical: true })).join('')}</div>` : vacio('Nada por aquí', 'No hay películas en las plataformas elegidas.')}
     </div>`;
+  activarSelector(verCatalogo);
 }
 
 async function verBusqueda() {
   const q = new URLSearchParams(location.hash.split('?')[1]).get('q') ?? '';
   document.querySelector('#buscador input').value = q;
-  const lista = q ? await api(`/titulos?q=${encodeURIComponent(q)}`) : [];
+  await cargarPlataformas();
+  const lista = q ? await api(`/titulos?tipo=pelicula&q=${encodeURIComponent(q)}`) : [];
   vista.innerHTML = `
     <div class="pagina">
       <div class="pagina-cab"><h1>${q ? `Resultados para «${esc(q)}»` : 'Buscar'}</h1></div>
@@ -188,6 +227,7 @@ function siguienteEpisodio(t, temporada, episodio) {
 }
 
 async function verTitulo(id) {
+  await cargarPlataformas();
   const t = await api(`/titulos/${id}`);
   document.title = `${t.titulo} · Fotograma`;
   const p = progreso.de(id);
@@ -326,8 +366,7 @@ async function verReproductor(id) {
 // ---------- Enrutador ----------
 const rutas = [
   [/^#?\/?$/, verInicio, 'inicio'],
-  [/^#\/peliculas/, () => verCatalogo('pelicula'), 'peliculas'],
-  [/^#\/series/, () => verCatalogo('serie'), 'series'],
+  [/^#\/(peliculas|series)/, verCatalogo, 'peliculas'],
   [/^#\/buscar/, verBusqueda, 'buscar'],
   [/^#\/mi-lista/, verMiLista, 'mi-lista'],
   [/^#\/titulo\/([\w-]+)/, verTitulo, 'titulo'],
@@ -358,7 +397,6 @@ async function enrutar() {
 document.getElementById('nav-movil').innerHTML = `
   <a href="#/">${iconos.casa}Inicio</a>
   <a href="#/peliculas">${iconos.peli}Películas</a>
-  <a href="#/series">${iconos.tv}Series</a>
   <a href="#/mi-lista">${iconos.lista}Mi lista</a>`;
 
 document.getElementById('buscador').addEventListener('submit', (ev) => {

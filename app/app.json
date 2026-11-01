@@ -2,24 +2,52 @@
   "expo": {
     "name": "Fotograma",
     "slug": "fotograma",
-    "version": "1.0.0",
+    "version": "1.2.0",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#141414",
-    "splash": { "image": "./assets/adaptive-icon.png", "resizeMode": "contain", "backgroundColor": "#141414" },
-    "ios": { "supportsTablet": true, "bundleIdentifier": "com.fotograma.app" },
+    "splash": {
+      "image": "./assets/adaptive-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#141414"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.fotograma.app"
+    },
     "android": {
       "package": "com.fotograma.app",
-      "versionCode": 1,
-      "adaptiveIcon": { "foregroundImage": "./assets/adaptive-icon.png", "backgroundColor": "#e31b23" }
+      "versionCode": 3,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#e31b23"
+      }
     },
     "plugins": [
-      ["expo-video", { "supportsBackgroundPlayback": false, "supportsPictureInPicture": true }],
-      ["expo-build-properties", { "android": { "usesCleartextTraffic": true } }]
+      [
+        "expo-video",
+        {
+          "supportsBackgroundPlayback": false,
+          "supportsPictureInPicture": true
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ],
+      "./plugins/android-tv"
     ],
     "extra": {
-      "apiUrl": "http://192.168.1.140:4000"
-    }
+      "apiUrl": "http://192.168.1.140:4000",
+      "eas": {
+        "projectId": "da7a3b66-b265-4f37-ab95-657323d323b1"
+      }
+    },
+    "owner": "morvehtv"
   }
 }

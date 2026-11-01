@@ -1,16 +1,16 @@
 import { useEffect, useState } from 'react';
-import { View, Text, Pressable, BackHandler, StyleSheet } from 'react-native';
+import { View, Text, BackHandler, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cargarAjustes } from './src/api';
 import { Inicio, Explorar, MiLista, Ficha, Ajustes } from './src/pantallas';
 import { Reproductor } from './src/Reproductor';
-import { Cargando } from './src/componentes';
+import { Cargando, Enfocable } from './src/componentes';
 import { c } from './src/tema';
 
 const PESTANAS = [
   ['inicio', 'Inicio', '⌂', Inicio],
-  ['explorar', 'Explorar', '⌕', Explorar],
+  ['explorar', 'Películas', '⌕', Explorar],
   ['lista', 'Mi lista', '♡', MiLista],
   ['ajustes', 'Ajustes', '⚙', Ajustes],
 ];
@@ -56,10 +56,10 @@ function Navegador() {
       <View style={{ flex: 1 }}><Activa key={pestana} nav={nav} params={{}} /></View>
       <View style={[e.tabs, { paddingBottom: ins.bottom || 8 }]}>
         {PESTANAS.map(([id, txt, icono]) => (
-          <Pressable key={id} onPress={() => setPestana(id)} style={e.tab} accessibilityRole="tab" accessibilityState={{ selected: pestana === id }}>
+          <Enfocable key={id} onPress={() => setPestana(id)} style={e.tab} accessibilityRole="tab" accessibilityState={{ selected: pestana === id }}>
             <Text style={[e.tabIcono, pestana === id && { color: c.acento }]}>{icono}</Text>
             <Text style={[e.tabTexto, pestana === id && { color: c.acento }]}>{txt}</Text>
-          </Pressable>
+          </Enfocable>
         ))}
       </View>
     </View>

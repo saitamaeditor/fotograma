@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  View, Text, Image, ScrollView, FlatList, Pressable, TextInput, RefreshControl, StyleSheet, useWindowDimensions,
+  View, Text, Image, ScrollView, FlatList, RefreshControl, StyleSheet, useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { api, miLista, progreso, siguienteEpisodio, urlApi, cambiarUrlApi } from './api';
-import { Fila, Tarjeta, Boton, Cargando, Vacio } from './componentes';
+import { api, miLista, progreso, siguienteEpisodio, urlApi, cambiarUrlApi, cargarPlataformas, misPlataformas } from './api';
+import { Fila, Tarjeta, Boton, Cargando, Vacio, SelectorPlataformas, EtiquetasPlataforma, Enfocable, Entrada } from './componentes';
 import { c } from './tema';
 
 function useDatos(cargar, deps = []) {
@@ -30,21 +30,37 @@ function ErrorConexion({ error, recargar, nav }) {
 }
 
 // ---------- Inicio ----------
+// Plataformas disponibles y las elegidas; al cambiarlas se guardan en el móvil
+function usePlataformas() {
+  const [estado, setEstado] = useState({ lista: null, elegidas: [], error: null });
+  const [intento, setIntento] = useState(0);
+  useEffect(() => {
+    cargarPlataformas()
+      .then(async (lista) => setEstado({ lista, elegidas: await misPlataformas.obtener(), error: null }))
+      .catch((error) => setEstado({ lista: null, elegidas: [], error }));
+  }, [intento]);
+  const reintentar = () => setIntento((n) => n + 1);
+  const cambiar = (elegidas) => {
+    setEstado((s) => ({ ...s, elegidas }));
+    misPlataformas.guardar(elegidas);
+  };
+  return { ...estado, cambiar, reintentar };
+}
+
 export function Inicio({ nav }) {
   const { width, height } = useWindowDimensions();
   const ins = useSafeAreaInsets();
+  const plat = usePlataformas();
+  const clave = plat.elegidas.join(',');
   const { datos, error, cargando, recargar } = useDatos(async () => {
-    const [inicio, prog] = await Promise.all([api('/inicio'), progreso.todo()]);
-    return { ...inicio, prog };
-  });
+    if (!plat.lista) return null;
+    return clave ? api(`/inicio?plataformas=${clave}`) : { destacado: null, filas: [] };
+  }, [plat.lista, clave]);
 
+  if (plat.error) return <ErrorConexion error={plat.error} recargar={plat.reintentar} nav={nav} />;
   if (error) return <ErrorConexion error={error} recargar={recargar} nav={nav} />;
   if (!datos) return <Cargando />;
-  const { destacado, filas, prog } = datos;
-  if (!filas.length) return <Vacio titulo="Catálogo vacío" texto="Añade títulos desde el panel /admin de la web." />;
-
-  const todos = new Map(filas.flatMap((f) => f.items).map((t) => [t.id, t]));
-  const seguir = Object.entries(prog).sort((a, b) => b[1].fecha - a[1].fecha).map(([id]) => todos.get(id)).filter(Boolean);
+  const { destacado, filas } = datos;
   const abrir = (t) => nav.ir('ficha', { id: t.id });
 
   return (
@@ -66,50 +82,66 @@ export function Inicio({ nav }) {
         </View>
       )}
       <View style={{ paddingTop: destacado ? 20 : ins.top + 20, paddingBottom: 30 }}>
-        {seguir.length > 0 && <Fila titulo="Seguir viendo" items={seguir} onPress={abrir} />}
-        {filas.map((f) => <Fila key={f.titulo} titulo={f.titulo} items={f.items} onPress={abrir} />)}
+        <SelectorPlataformas plataformas={plat.lista} elegidas={plat.elegidas} onCambiar={plat.cambiar} />
+        {filas.length
+          ? filas.map((f) => <Fila key={f.id} titulo={f.titulo} color={f.color} items={f.items} onPress={abrir} />)
+          : <Vacio
+              titulo={plat.elegidas.length ? 'Sin películas' : 'Elige una plataforma'}
+              texto={plat.elegidas.length ? 'Todavía no hay películas en las plataformas elegidas.' : 'Marca arriba las plataformas que quieres ver.'}
+            />}
       </View>
     </ScrollView>
   );
 }
 
-// ---------- Explorar (películas, series y búsqueda) ----------
+// ---------- Películas (búsqueda y filtro por plataforma) ----------
 export function Explorar({ nav }) {
   const ins = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const [tipo, setTipo] = useState('');
+  const plat = usePlataformas();
   const [q, setQ] = useState('');
   const [buscado, setBuscado] = useState('');
   useEffect(() => { const t = setTimeout(() => setBuscado(q.trim()), 350); return () => clearTimeout(t); }, [q]);
 
-  const { datos, error, recargar } = useDatos(
-    () => api(`/titulos?${new URLSearchParams({ ...(tipo && { tipo }), ...(buscado && { q: buscado }) })}`),
-    [tipo, buscado],
-  );
+  const clave = plat.elegidas.join(',');
+  const { datos, error, recargar } = useDatos(async () => {
+    if (!plat.lista) return null;
+    if (!clave) return [];
+    return api(`/titulos?${new URLSearchParams({ tipo: 'pelicula', plataformas: clave, ...(buscado && { q: buscado }) })}`);
+  }, [plat.lista, clave, buscado]);
   const columnas = Math.max(3, Math.floor(width / 140));
   const ancho = (width - 32 - (columnas - 1) * 10) / columnas;
 
   return (
     <View style={{ flex: 1, paddingTop: ins.top + 10 }}>
       <View style={{ paddingHorizontal: 16, gap: 12, marginBottom: 12 }}>
-        <TextInput
+        <Entrada
           value={q}
           onChangeText={setQ}
-          placeholder="Buscar películas y series"
+          placeholder="Buscar películas"
           placeholderTextColor={c.texto3}
           style={e.entrada}
           returnKeyType="search"
           clearButtonMode="while-editing"
         />
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          {[['', 'Todo'], ['pelicula', 'Películas'], ['serie', 'Series']].map(([v, txt]) => (
-            <Pressable key={v} onPress={() => setTipo(v)} style={[e.chip, tipo === v && e.chipActivo]}>
-              <Text style={{ color: tipo === v ? c.fondo : c.texto2, fontWeight: '600', fontSize: 13 }}>{txt}</Text>
-            </Pressable>
-          ))}
-        </View>
+        {plat.lista && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+            {plat.lista.map((p) => {
+              const activa = plat.elegidas.includes(p.id);
+              return (
+                <Enfocable radio={999}
+                  key={p.id}
+                  onPress={() => plat.cambiar(activa ? plat.elegidas.filter((x) => x !== p.id) : [...plat.elegidas, p.id])}
+                  style={[e.chip, activa && { backgroundColor: p.color, borderColor: p.color }]}
+                >
+                  <Text style={{ color: activa ? '#fff' : c.texto2, fontWeight: '700', fontSize: 13 }}>{p.nombre}</Text>
+                </Enfocable>
+              );
+            })}
+          </ScrollView>
+        )}
       </View>
-      {error ? <ErrorConexion error={error} recargar={recargar} nav={nav} /> : !datos ? <Cargando /> : (
+      {plat.error ? <ErrorConexion error={plat.error} recargar={plat.reintentar} nav={nav} /> : error ? <ErrorConexion error={error} recargar={recargar} nav={nav} /> : !datos ? <Cargando /> : (
         <FlatList
           key={columnas}
           data={datos}
@@ -118,7 +150,7 @@ export function Explorar({ nav }) {
           columnWrapperStyle={{ gap: 10 }}
           contentContainerStyle={{ paddingHorizontal: 16, gap: 16, paddingBottom: 30 }}
           renderItem={({ item }) => <Tarjeta t={item} ancho={ancho} onPress={(t) => nav.ir('ficha', { id: t.id })} />}
-          ListEmptyComponent={<Vacio titulo="Sin resultados" texto="Prueba con otro título." />}
+          ListEmptyComponent={<Vacio titulo="Sin resultados" texto={clave ? 'Prueba con otro título o marca más plataformas.' : 'Marca alguna plataforma arriba.'} />}
         />
       )}
     </View>
@@ -159,7 +191,7 @@ export function Ficha({ nav, params }) {
   const [temporada, setTemporada] = useState(null);
   const [enLista, setEnLista] = useState(false);
   const { datos, error, recargar } = useDatos(async () => {
-    const [t, prog, ids] = await Promise.all([api(`/titulos/${params.id}`), progreso.todo(), miLista.ids()]);
+    const [t, prog, ids] = await Promise.all([api(`/titulos/${params.id}`), progreso.todo(), miLista.ids(), cargarPlataformas()]);
     setEnLista(ids.includes(params.id));
     return { t, p: prog[params.id] };
   }, [params.id]);
@@ -188,15 +220,16 @@ export function Ficha({ nav, params }) {
       <View style={{ height: height * 0.42 }}>
         {(t.fondo || t.poster) && <Image source={{ uri: t.fondo ?? t.poster }} style={StyleSheet.absoluteFill} />}
         <View style={e.degradado} />
-        <Pressable onPress={nav.atras} style={[e.atras, { top: ins.top + 8 }]} hitSlop={10}>
+        <Enfocable radio={19} onPress={nav.atras} style={[e.atras, { top: ins.top + 8 }]} hitSlop={10}>
           <Text style={{ color: c.texto, fontSize: 22 }}>‹</Text>
-        </Pressable>
+        </Enfocable>
       </View>
       <View style={{ paddingHorizontal: 16, marginTop: -40 }}>
         <Text style={e.h1}>{t.titulo}</Text>
         <Text style={e.meta}>
           {[t.valoracion && `★ ${t.valoracion}`, t.anio, t.tipo === 'serie' ? `${t.temporadas?.length ?? 0} temporadas` : t.duracion && `${t.duracion} min`, ...(t.generos ?? []).slice(0, 2)].filter(Boolean).join('  ·  ')}
         </Text>
+        <EtiquetasPlataforma ids={t.plataformas} style={{ marginTop: 8 }} />
         <View style={{ gap: 10, marginVertical: 16 }}>
           {t.disponible ? (
             <Boton
@@ -217,13 +250,13 @@ export function Ficha({ nav, params }) {
           <View style={{ marginTop: 26 }}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, marginBottom: 14 }}>
               {t.temporadas.map((x) => (
-                <Pressable key={x.numero} onPress={() => setTemporada(x.numero)} style={[e.chip, temporada === x.numero && e.chipActivo]}>
+                <Enfocable radio={999} key={x.numero} onPress={() => setTemporada(x.numero)} style={[e.chip, temporada === x.numero && e.chipActivo]}>
                   <Text style={{ color: temporada === x.numero ? c.fondo : c.texto2, fontWeight: '600' }}>Temporada {x.numero}</Text>
-                </Pressable>
+                </Enfocable>
               ))}
             </ScrollView>
             {s?.episodios.map((ep) => (
-              <Pressable
+              <Enfocable
                 key={ep.numero}
                 disabled={!ep.disponible}
                 onPress={() => ver(s.numero, ep.numero)}
@@ -235,7 +268,7 @@ export function Ficha({ nav, params }) {
                   <Text style={{ color: c.texto3, fontSize: 12 }}>{ep.disponible ? (ep.duracion ? `${ep.duracion} min` : '') : 'Próximamente'}</Text>
                   <Text style={{ color: c.texto2, fontSize: 12, marginTop: 2 }} numberOfLines={2}>{ep.sinopsis}</Text>
                 </View>
-              </Pressable>
+              </Enfocable>
             ))}
           </View>
         )}
@@ -265,7 +298,7 @@ export function Ajustes() {
     <View style={{ flex: 1, padding: 16, paddingTop: ins.top + 16, gap: 14 }}>
       <Text style={e.h1}>Ajustes</Text>
       <Text style={{ color: c.texto2 }}>URL de la API de Fotograma</Text>
-      <TextInput
+      <Entrada
         value={url}
         onChangeText={setUrl}
         autoCapitalize="none"

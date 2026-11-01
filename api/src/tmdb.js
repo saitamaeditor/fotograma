@@ -1,5 +1,7 @@
 // Metadatos de TMDB: títulos, sinopsis, carteles, temporadas y episodios.
-const { TMDB_KEY = '', TMDB_IDIOMA = 'es-ES' } = process.env;
+import { detectar } from './plataformas.js';
+
+const { TMDB_KEY = '', TMDB_IDIOMA = 'es-ES', TMDB_REGION = 'ES' } = process.env;
 const IMG = 'https://image.tmdb.org/t/p';
 
 export const configurado = Boolean(TMDB_KEY);
@@ -48,8 +50,11 @@ export async function buscar(q, tipo) {
 
 export async function ficha(tmdbId, tipo) {
   const esSerie = tipo === 'serie';
-  const d = await pedir(`/${esSerie ? 'tv' : 'movie'}/${tmdbId}`, { append_to_response: 'videos,credits' });
+  const d = await pedir(`/${esSerie ? 'tv' : 'movie'}/${tmdbId}`, { append_to_response: 'videos,credits,watch/providers' });
   const trailer = (d.videos?.results ?? []).find((v) => v.site === 'YouTube' && v.type === 'Trailer');
+  // Plataformas de suscripción donde está en España según TMDB (JustWatch)
+  const proveedores = d['watch/providers']?.results?.[TMDB_REGION]?.flatrate ?? [];
+  const plataformas = detectar(proveedores.map((p) => p.provider_name).join(' | '));
   const base = {
     tmdbId: d.id,
     tipo,
@@ -64,6 +69,8 @@ export async function ficha(tmdbId, tipo) {
     fondo: img(d.backdrop_path, 'w1280'),
     reparto: (d.credits?.cast ?? []).slice(0, 8).map((c) => c.name),
     trailer: trailer ? `https://www.youtube.com/watch?v=${trailer.key}` : null,
+    // Sin datos de TMDB no fijamos nada: así se deducen de la carpeta del vídeo
+    ...(plataformas.length && { plataformas }),
   };
   if (!esSerie) return { ...base, videoKey: null };
 

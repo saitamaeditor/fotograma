@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useEvent } from 'expo';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api, progreso, siguienteEpisodio } from './api';
-import { Cargando, Vacio, Boton } from './componentes';
+import { Cargando, Vacio, Boton, Enfocable } from './componentes';
 import { c } from './tema';
 
 // Pide a la API el enlace firmado de IDrive e2 y lo reproduce directamente.
@@ -62,15 +62,15 @@ function Video({ url, nav, params, ficha }) {
     <View style={{ flex: 1, backgroundColor: '#000' }}>
       <VideoView player={player} style={StyleSheet.absoluteFill} contentFit="contain" allowsFullscreen allowsPictureInPicture nativeControls />
       <View style={[e.barra, { paddingTop: ins.top + 8 }]} pointerEvents="box-none">
-        <Pressable onPress={nav.atras} style={e.boton} hitSlop={10}><Text style={{ color: '#fff', fontSize: 22 }}>‹</Text></Pressable>
+        <Enfocable radio={19} onPress={nav.atras} style={e.boton} hitSlop={10}><Text style={{ color: '#fff', fontSize: 22 }}>‹</Text></Enfocable>
         <View style={{ flex: 1 }}>
           <Text style={{ color: '#fff', fontWeight: '700' }} numberOfLines={1}>{ficha.titulo}</Text>
           {ep && <Text style={{ color: c.texto2, fontSize: 12 }} numberOfLines={1}>T{temporada}:E{episodio} · {ep.titulo}</Text>}
         </View>
         {sig && (
-          <Pressable onPress={() => nav.reemplazar('reproductor', { ...params, t: sig.t, e: sig.e })} style={e.sig}>
+          <Enfocable radio={999} onPress={() => nav.reemplazar('reproductor', { ...params, t: sig.t, e: sig.e })} style={e.sig}>
             <Text style={{ color: '#fff', fontWeight: '600', fontSize: 12 }}>Siguiente ›</Text>
-          </Pressable>
+          </Enfocable>
         )}
       </View>
       {status === 'error' && <Vacio titulo="Error de reproducción" texto="Comprueba que el vídeo es MP4 (H.264/AAC)." />}

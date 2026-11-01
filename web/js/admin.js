@@ -159,8 +159,12 @@ function estadoVideos(t) {
   return `<span class="pildora ${cls}">${con}/${eps.length} episodios</span>`;
 }
 
+let plataformas = [];
+const nombrePlataforma = (id) => plataformas.find((p) => p.id === id)?.nombre ?? id;
+
 async function verCatalogo() {
   const lista = await api('/admin/titulos');
+  plataformas = await api('/plataformas');
   contenido.innerHTML = `
     <div class="contenido-cab">
       <h1>Catálogo</h1>
@@ -169,7 +173,7 @@ async function verCatalogo() {
     ${lista.length ? `
       <div class="caja tabla-scroll">
         <table class="tabla">
-          <thead><tr><th></th><th>Título</th><th>Tipo</th><th>Año</th><th>Vídeos</th><th class="min"></th></tr></thead>
+          <thead><tr><th></th><th>Título</th><th>Tipo</th><th>Año</th><th>Plataformas</th><th>Vídeos</th><th class="min"></th></tr></thead>
           <tbody>
             ${lista.map((t) => `
               <tr data-id="${t.id}" data-texto="${esc(t.titulo.toLowerCase())}">
@@ -177,6 +181,7 @@ async function verCatalogo() {
                 <td><b>${esc(t.titulo)}</b></td>
                 <td>${t.tipo === 'serie' ? 'Serie' : 'Película'}</td>
                 <td>${esc(t.anio ?? '')}</td>
+                <td>${t.plataformasVistas?.length ? t.plataformasVistas.map((p) => `<span class="pildora medio">${esc(nombrePlataforma(p))}</span>`).join(" ") : '<span class="texto-3">—</span>'}</td>
                 <td>${estadoVideos(t)}</td>
                 <td class="min">
                   <button class="btn btn-primario btn-chico" data-accion="videos">Vídeos</button>
@@ -353,12 +358,18 @@ function dialogoEditar(t) {
       <label class="campo"><span>Géneros (separados por comas)</span><input name="generos" value="${esc((t.generos ?? []).join(', '))}" /></label>
       <label class="campo"><span>URL del cartel</span><input name="poster" value="${esc(t.poster ?? '')}" /></label>
       <label class="campo"><span>URL de la imagen de fondo</span><input name="fondo" value="${esc(t.fondo ?? '')}" /></label>
+      <div class="campo"><span>Plataformas</span>
+        <div class="casillas">
+          ${plataformas.map((p) => `<label class="casilla"><input type="checkbox" name="plataformas" value="${p.id}" ${(t.plataformasVistas ?? []).includes(p.id) ? 'checked' : ''} /> ${esc(p.nombre)}</label>`).join('')}
+        </div>
+      </div>
       <div><button class="btn btn-primario">Guardar</button></div>
     </form>`);
   d.querySelector('form').onsubmit = async (ev) => {
     ev.preventDefault();
     const f = Object.fromEntries(new FormData(ev.currentTarget));
     f.generos = f.generos.split(',').map((g) => g.trim()).filter(Boolean);
+    f.plataformas = new FormData(ev.currentTarget).getAll('plataformas');
     try { await api(`/admin/titulos/${t.id}`, { metodo: 'PATCH', cuerpo: f }); avisar('Guardado'); dialogo.close(); }
     catch (err) { avisar(err.message, true); }
   };
