@@ -63,7 +63,9 @@ function publico(t, completo = false) {
 }
 
 app.get('/api/estado', (req, res) => {
-  res.json({ ok: true, e2: e2.configurado, tmdb: tmdb.configurado, titulos: titulos.todos().length });
+  // `version` es el commit publicado (Render lo da en RENDER_GIT_COMMIT): así se sabe cuándo ya está en línea
+  const version = process.env.RENDER_GIT_COMMIT?.slice(0, 7) ?? 'local';
+  res.set('Cache-Control', 'no-store').json({ ok: true, e2: e2.configurado, tmdb: tmdb.configurado, titulos: titulos.todos().length, version });
 });
 
 // La web lo consulta cada poco: si cambia `version`, repinta la vista con lo nuevo.

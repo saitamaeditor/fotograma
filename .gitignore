@@ -5,3 +5,4 @@ api/data/*.tmp
 app/.expo/
 app/dist/
 .claude/
+.deploy-hook
