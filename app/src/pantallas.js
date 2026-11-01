@@ -166,6 +166,41 @@ function Acceso({ nav }) {
   );
 }
 
+// Dispositivos con la sesión abierta, con opción de cerrarlos a distancia
+function Dispositivos() {
+  const [lista, setLista] = useState(null);
+  const [error, setError] = useState('');
+  const cargar = () => cuenta.dispositivos().then(setLista).catch((err) => setError(err.message));
+  useEffect(() => { cargar(); }, []);
+  const hace = (f) => {
+    const min = Math.round((Date.now() - Date.parse(f)) / 60000);
+    if (min < 15) return 'activo ahora';
+    if (min < 60) return `hace ${min} min`;
+    const h = Math.round(min / 60);
+    return h < 24 ? `hace ${h} h` : `hace ${Math.round(h / 24)} días`;
+  };
+  if (error) return <Text style={{ color: c.peligro }}>{error}</Text>;
+  if (!lista) return <Text style={{ color: c.texto3 }}>Cargando…</Text>;
+  const otros = lista.filter((d) => !d.actual).length;
+  return (
+    <View style={{ gap: 8 }}>
+      {lista.map((d) => (
+        <View key={d.id} style={e.dispositivo}>
+          <Text style={{ fontSize: 20 }}>{/TV/i.test(d.dispositivo) ? '📺' : /App|Android|iPhone/i.test(d.dispositivo) ? '📱' : '💻'}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: '#fff', fontWeight: '700' }} numberOfLines={1}>{d.dispositivo}</Text>
+            <Text style={{ color: c.texto2, fontSize: 12.5 }}>{d.actual ? 'Este dispositivo' : hace(d.ultimo)}</Text>
+          </View>
+          {d.actual
+            ? <Text style={e.esteDisp}>Aquí</Text>
+            : <Boton texto="Cerrar" tipo="secundario" onPress={async () => { await cuenta.cerrarDispositivo(d.id).catch(() => {}); cargar(); }} style={{ paddingVertical: 7, paddingHorizontal: 14 }} />}
+        </View>
+      ))}
+      {otros > 0 && <Boton texto={`Cerrar sesión en los demás (${otros})`} tipo="secundario" onPress={async () => { await cuenta.cerrarOtros().catch(() => {}); cargar(); }} />}
+    </View>
+  );
+}
+
 function Perfil({ nav, u }) {
   const ins = useSafeAreaInsets();
   const [cifras, setCifras] = useState({ lista: 0, empezados: 0 });
@@ -209,6 +244,10 @@ function Perfil({ nav, u }) {
           <View style={e.cifra}><Text style={e.cifraNum}>{cifras.empezados}</Text><Text style={e.cifraTxt}>empezados</Text></View>
         </View>
         <Text style={{ color: c.texto2, lineHeight: 20, fontSize: 13.5 }}>Tu lista y lo que estás viendo se guardan en tu cuenta. Entra con el mismo correo en la web o la tele para tenerlo todo igual.</Text>
+
+        <Text style={e.seccionCuenta}>Dispositivos conectados</Text>
+        <Text style={{ color: c.texto2, fontSize: 13 }}>Puedes usar tu cuenta en todos los que quieras a la vez.</Text>
+        <Dispositivos />
 
         <Text style={e.seccionCuenta}>Cambiar nombre</Text>
         <Campo etiqueta="Nombre" value={nombre} onChangeText={setNombre} maxLength={40} autoComplete="name" />
@@ -442,6 +481,7 @@ export function MiLista({ nav }) {
     const [ids, todos] = await Promise.all([miLista.ids(), api('/titulos')]);
     return ids.map((id) => todos.find((t) => t.id === id)).filter(Boolean);
   });
+  useEffect(() => cuenta.alLlegarDatos(recargar), [recargar]);
   const columnas = Math.max(3, Math.floor(width / 140));
   const ancho = (width - 32 - (columnas - 1) * 10) / columnas;
   if (error) return <ErrorConexion error={error} recargar={recargar} nav={nav} />;
@@ -565,6 +605,8 @@ const e = StyleSheet.create({
   ver: { position: 'absolute', right: 6, paddingHorizontal: 10, paddingVertical: 8 },
   barraFuerza: { flex: 1, height: 4, borderRadius: 2 },
   avisoCuenta: { padding: 12, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.05)' },
+  dispositivo: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 12, backgroundColor: '#0c0d13', borderWidth: 1, borderColor: '#22232f' },
+  esteDisp: { color: '#4fd18b', fontWeight: '700', fontSize: 12, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, backgroundColor: 'rgba(79,209,139,0.14)', overflow: 'hidden' },
   avatar: { width: 58, height: 58, borderRadius: 29, alignItems: 'center', justifyContent: 'center', backgroundColor: c.acento },
   cifra: { flex: 1, padding: 14, borderRadius: 12, backgroundColor: '#0c0d13', borderWidth: 1, borderColor: '#22232f' },
   cifraNum: { color: '#fff', fontSize: 24, fontWeight: '800' },

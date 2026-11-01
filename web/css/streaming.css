@@ -266,3 +266,13 @@ h1, h2, h3 { font-weight: 800; letter-spacing: -0.02em; }
 .c-seccion summary { cursor: pointer; font-weight: 700; color: #fff; padding: 4px 0; }
 .c-seccion .c-form { margin-top: 12px; }
 .c-salir { width: 100%; margin-top: 20px; justify-content: center; }
+
+/* Mi cuenta: dispositivos conectados */
+.c-dispositivos { display: grid; gap: 8px; margin-top: 10px; }
+.c-dispositivo { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 12px; background: #0c0d13; border: 1px solid #22232f; }
+.c-disp-icono { font-size: 20px; }
+.c-dispositivo > div { flex: 1; min-width: 0; display: grid; }
+.c-dispositivo b { color: #fff; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.c-dispositivo span { color: var(--texto-2); font-size: 12.5px; }
+.c-este { padding: 4px 10px; border-radius: 999px; background: rgba(79, 209, 139, 0.14); color: #4fd18b !important; font-weight: 700; }
+.c-cerrar-otros { width: 100%; justify-content: center; margin-top: 4px; }

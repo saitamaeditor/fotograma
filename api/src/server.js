@@ -323,18 +323,24 @@ app.use('/api/admin', admin);
 // ---------- Cuentas de los espectadores ----------
 // La sesión va en la cabecera «Authorization: Bearer <token>»
 const conCuenta = (req, res, next) => {
-  const u = cuentas.deToken(req.get('authorization')?.replace(/^Bearer\s+/i, ''));
-  if (!u) return res.status(401).json({ error: 'Inicia sesión de nuevo' });
-  req.usuario = u;
+  const r = cuentas.deToken(req.get('authorization')?.replace(/^Bearer\s+/i, ''));
+  if (!r) return res.status(401).json({ error: 'Inicia sesión de nuevo' });
+  req.usuario = r.usuario;
+  req.sesion = r.sesion;
   next();
 };
 app.post('/api/cuenta/registro', asinc(async (req, res) => res.status(201).json(await cuentas.registrar(req.body ?? {}, req.ip))));
 app.post('/api/cuenta/entrar', asinc(async (req, res) => res.json(await cuentas.entrar(req.body ?? {}, req.ip))));
 app.get('/api/cuenta', conCuenta, (req, res) => {
   const { id, email, nombre, creado, datos } = req.usuario;
-  res.set('Cache-Control', 'no-store').json({ usuario: { id, email, nombre, creado }, datos: datos ?? {} });
+  res.set('Cache-Control', 'no-store').json({ usuario: { id, email, nombre, creado }, datos: datos ?? {}, ahora: Date.now() });
 });
-app.put('/api/cuenta/datos', conCuenta, (req, res) => res.json({ datos: cuentas.guardarDatos(req.usuario, req.body?.claves) }));
+app.put('/api/cuenta/datos', conCuenta, (req, res) => res.json({ datos: cuentas.guardarDatos(req.usuario, req.body?.claves, req.body ?? {}), ahora: Date.now() }));
+// Dispositivos con la sesión abierta
+app.get('/api/cuenta/sesiones', conCuenta, (req, res) => res.json(cuentas.sesiones(req.usuario, req.sesion)));
+// «actual» = la de este dispositivo (al pulsar Cerrar sesión)
+app.delete('/api/cuenta/sesiones/:id', conCuenta, (req, res) => { cuentas.cerrarSesion(req.usuario, req.params.id === 'actual' ? req.sesion : req.params.id); res.json({ ok: true }); });
+app.post('/api/cuenta/sesiones/cerrar-otras', conCuenta, (req, res) => { cuentas.cerrarOtras(req.usuario, req.sesion); res.json({ ok: true }); });
 app.put('/api/cuenta/perfil', conCuenta, (req, res) => res.json({ usuario: cuentas.cambiarNombre(req.usuario, req.body ?? {}) }));
 app.put('/api/cuenta/contrasena', conCuenta, asinc(async (req, res) => { await cuentas.cambiarContrasena(req.usuario, req.body ?? {}); res.json({ ok: true }); }));
 app.use('/api', (req, res) => res.status(404).json({ error: 'Ruta no encontrada' }));

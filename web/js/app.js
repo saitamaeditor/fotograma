@@ -390,6 +390,42 @@ function verCuenta() {
   };
 }
 
+// Lista de dispositivos con la sesión abierta, con opción de cerrarlos a distancia
+async function pintarDispositivos() {
+  const caja = document.getElementById('dispositivos');
+  if (!caja) return;
+  let lista;
+  try { lista = await cuenta.dispositivos(); } catch { caja.innerHTML = '<p class="c-sub">No se pudo cargar la lista.</p>'; return; }
+  const hace = (f) => {
+    const min = Math.round((Date.now() - Date.parse(f)) / 60000);
+    if (min < 15) return 'activo ahora';
+    if (min < 60) return `hace ${min} min`;
+    const h = Math.round(min / 60);
+    if (h < 24) return `hace ${h} h`;
+    return `hace ${Math.round(h / 24)} días`;
+  };
+  const otros = lista.filter((d) => !d.actual).length;
+  caja.innerHTML = `
+    ${lista.map((d) => `
+      <div class="c-dispositivo">
+        <span class="c-disp-icono">${/TV/i.test(d.dispositivo) ? '📺' : /App|Android|iPhone/i.test(d.dispositivo) ? '📱' : '💻'}</span>
+        <div><b>${esc(d.dispositivo)}</b><span>${d.actual ? 'Este dispositivo' : hace(d.ultimo)}</span></div>
+        ${d.actual ? '<span class="c-este">Aquí</span>' : `<button class="btn btn-secundario btn-chico" data-cerrar="${esc(d.id)}">Cerrar</button>`}
+      </div>`).join('') || '<p class="c-sub">Este navegador entró antes de que existiera la lista de dispositivos.</p>'}
+    ${otros ? `<button class="btn btn-secundario c-cerrar-otros" id="cerrar-otros">Cerrar sesión en los demás (${otros})</button>` : ''}`;
+  caja.onclick = async (ev) => {
+    const b = ev.target.closest('[data-cerrar]');
+    try {
+      if (b) { await cuenta.cerrarDispositivo(b.dataset.cerrar); avisar('Sesión cerrada en ese dispositivo'); }
+      else if (ev.target.closest('#cerrar-otros')) { await cuenta.cerrarOtros(); avisar('Sesión cerrada en los demás dispositivos'); }
+      else return;
+      pintarDispositivos();
+    } catch (err) {
+      avisar(err.message, true);
+    }
+  };
+}
+
 function verPerfil(u) {
   const enLista = miLista.ids().length;
   const empezados = Object.keys(progreso.todo()).length;
@@ -407,6 +443,11 @@ function verPerfil(u) {
         </div>
         <p class="c-sub" style="margin-bottom:6px">Tu lista y lo que estás viendo se guardan en tu cuenta. Entra con el mismo correo en el móvil o la tele para tenerlo todo igual.</p>
 
+        <details class="c-seccion" open>
+          <summary>Dispositivos conectados</summary>
+          <p class="c-sub">Puedes usar tu cuenta en todos los que quieras a la vez: web, móvil y tele.</p>
+          <div id="dispositivos" class="c-dispositivos"><p class="c-sub">Cargando…</p></div>
+        </details>
         <details class="c-seccion">
           <summary>Cambiar nombre</summary>
           <form id="form-nombre" class="c-form">
@@ -428,6 +469,8 @@ function verPerfil(u) {
       </div>
     </div>`;
   activarOjos(vista);
+
+  pintarDispositivos();
 
   document.getElementById('salir').onclick = async () => {
     await cuenta.salir();
@@ -684,6 +727,14 @@ const pintarBotonCuenta = (u) => {
 };
 pintarBotonCuenta(cuenta.usuario());
 cuenta.alCambiar(pintarBotonCuenta);
+// Cuando llegan cambios de otro dispositivo (lista o progreso), se repinta la vista
+cuenta.alLlegarDatos(() => {
+  const nombre = (rutas.find(([re]) => re.test(location.hash || '#/')) ?? rutas[0])[2];
+  if (['inicio', 'peliculas', 'series', 'mi-lista', 'documentales', 'docuseries'].includes(nombre)) {
+    const y = window.scrollY;
+    enrutar().then(() => window.scrollTo(0, y));
+  }
+});
 // Trae lo último de la cuenta (por si se cambió en otro dispositivo) y repinta
 cuenta.refrescar().then((ok) => {
   const nombre = (rutas.find(([re]) => re.test(location.hash || '#/')) ?? rutas[0])[2];
