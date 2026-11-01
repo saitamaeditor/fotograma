@@ -2,11 +2,11 @@
 // grupo se configuran desde el panel y se guardan con el catálogo; el token nunca se
 // devuelve entero al navegador.
 import { ajustes, titulos } from './db.js';
-import { PLATAFORMAS, deTitulo } from './plataformas.js';
+import { PLATAFORMAS, deTitulo, categoriaDe as seccionDe } from './plataformas.js';
 
 const WEB = (process.env.PUBLIC_URL ?? 'https://morvehtv.es').replace(/\/$/, '');
 const DOWNLOADER = '4040796'; // código de la app en Downloader (Fire TV / Android TV)
-const historial = [];
+const historial = []; // últimos avisos enviados (o fallidos), para verlos en el panel
 
 // Secciones de los avisos; en grupos con temas cada una puede ir a su tema.
 // Los documentales y docuseries son películas y series con el género «Documental».
@@ -16,10 +16,8 @@ export const SECCIONES = {
   documental: { nombre: 'Documentales', tema: '🎥 Documentales', color: 16766590, cabecera: '🎥 <b>Nuevo documental en MorvehTV</b>' },
   docuserie: { nombre: 'Docuseries', tema: '🎞 Docuseries', color: 9367192, cabecera: '🎞 <b>Nueva docuserie en MorvehTV</b>' },
 };
-const esDocumental = (t) => (t.generos ?? []).some((g) => /documental|documentary/i.test(g));
-const seccionDe = (t) => (esDocumental(t) ? (t.tipo === 'serie' ? 'docuserie' : 'documental') : t.tipo);
 // Si una sección no tiene tema propio, usa el de su tipo (documental → películas, docuserie → series)
-const BASE = { documental: 'pelicula', docuserie: 'serie' }; // últimos avisos enviados (o fallidos), para verlos en el panel
+const BASE = { documental: 'pelicula', docuserie: 'serie' };
 
 const config = () => ({ activo: true, downloader: DOWNLOADER, ...ajustes.obtener('telegram') });
 

@@ -7,7 +7,7 @@ import * as tmdb from './tmdb.js';
 import { titulos, iniciar as iniciarDb } from './db.js';
 import * as importador from './importador.js';
 import * as telegram from './telegram.js';
-import { deTipo, deTitulo, limpiar, detectar, carpeta } from './plataformas.js';
+import { deTipo, deTitulo, limpiar, detectar, carpeta, CATEGORIAS, TIPO_BASE, categoriaDe } from './plataformas.js';
 
 const { PORT = 4000, ADMIN_KEY = '', CORS_ORIGINS = '*' } = process.env;
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'web');
@@ -82,10 +82,11 @@ app.get('/api/novedades', (req, res) => {
 
 app.get('/api/titulos', (req, res) => {
   importador.siHaceFalta();
-  const { tipo, genero, q, disponibles, plataformas } = req.query;
+  const { tipo, categoria, genero, q, disponibles, plataformas } = req.query;
   const texto = q?.toString().toLowerCase();
   let lista = titulos.todos();
   if (tipo) lista = lista.filter((t) => t.tipo === tipo);
+  if (categoria) lista = lista.filter((t) => categoriaDe(t) === categoria);
   if (genero) lista = lista.filter((t) => t.generos?.includes(genero));
   if (texto) lista = lista.filter((t) => `${t.titulo} ${t.tituloOriginal ?? ''}`.toLowerCase().includes(texto));
   let res2 = lista.map((t) => publico(t));
@@ -97,14 +98,17 @@ app.get('/api/titulos', (req, res) => {
   res.json(res2);
 });
 
-// Portada de películas (o de series con ?tipo=serie): una fila por cada plataforma elegida
-// (?plataformas=netflix,prime). Sin el parámetro salen todas. Web y app usan lo mismo.
+// ?tipo=pelicula|serie|documental|docuserie (por defecto películas)
+const categoriaPedida = (req) => (CATEGORIAS.includes(req.query.tipo) ? req.query.tipo : 'pelicula');
+
+// Portada de una categoría: una fila por cada plataforma elegida (?plataformas=netflix,prime).
+// Sin el parámetro salen todas. Web y app usan lo mismo.
 app.get('/api/inicio', (req, res) => {
   importador.siHaceFalta();
-  const tipo = req.query.tipo === 'serie' ? 'serie' : 'pelicula';
-  const disponibles = deTipo(tipo);
+  const cat = categoriaPedida(req);
+  const disponibles = deTipo(TIPO_BASE[cat]);
   const elegidas = req.query.plataformas ? limpiar(String(req.query.plataformas).split(',')) : disponibles.map((p) => p.id);
-  const lista = titulos.todos().filter((t) => t.tipo === tipo).map((t) => publico(t));
+  const lista = titulos.todos().filter((t) => categoriaDe(t) === cat).map((t) => publico(t));
   const filas = disponibles.filter((p) => elegidas.includes(p.id))
     .map(({ id, nombre, color }) => ({ id, titulo: nombre, color, items: lista.filter((t) => t.plataformas.includes(id)) }))
     .filter((f) => f.items.length);
@@ -113,11 +117,11 @@ app.get('/api/inicio', (req, res) => {
   res.json({ destacado, filas });
 });
 
-// Plataformas de películas (o de series con ?tipo=serie) con cuántos títulos tiene cada una
+// Plataformas de una categoría con cuántos títulos tiene cada una
 app.get('/api/plataformas', (req, res) => {
-  const tipo = req.query.tipo === 'serie' ? 'serie' : 'pelicula';
-  const vistas = titulos.todos().filter((t) => t.tipo === tipo).map(deTitulo);
-  res.json(deTipo(tipo).map(({ id, nombre, color }) => ({ id, nombre, color, total: vistas.filter((p) => p.includes(id)).length })));
+  const cat = categoriaPedida(req);
+  const vistas = titulos.todos().filter((t) => categoriaDe(t) === cat).map(deTitulo);
+  res.json(deTipo(TIPO_BASE[cat]).map(({ id, nombre, color }) => ({ id, nombre, color, total: vistas.filter((p) => p.includes(id)).length })));
 });
 
 app.get('/api/generos', (req, res) => {

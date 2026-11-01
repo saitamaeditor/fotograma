@@ -75,7 +75,15 @@ function tarjeta(t, { vertical = false } = {}) {
 }
 
 // Texto «1 película», «3 series»…
-const cuantos = (n, tipo) => `${n} ${tipo === 'serie' ? (n === 1 ? 'serie' : 'series') : (n === 1 ? 'película' : 'películas')}`;
+// Las cuatro categorías: documentales y docuseries son títulos con el género «Documental»
+const CATEGORIAS = {
+  pelicula: { nombre: 'Películas', unidad: ['película', 'películas'], clave: 'fg-plataformas' },
+  serie: { nombre: 'Series', unidad: ['serie', 'series'], clave: 'fg-plataformas-series' },
+  documental: { nombre: 'Documentales', unidad: ['documental', 'documentales'], clave: 'fg-plataformas-documentales' },
+  docuserie: { nombre: 'Docuseries', unidad: ['docuserie', 'docuseries'], clave: 'fg-plataformas-docuseries' },
+};
+const deSeries = (tipo) => tipo === 'serie' || tipo === 'docuserie';
+const cuantos = (n, tipo) => `${n} ${CATEGORIAS[tipo].unidad[n === 1 ? 0 : 1]}`;
 
 function fila(titulo, items, color, tipo = 'pelicula') {
   return `
@@ -118,25 +126,26 @@ function activarCarruseles() {
 
 // ---------- Plataformas elegidas por el espectador ----------
 // Películas y series tienen su propia lista: en series son las cadenas originales.
-const plataformas = { pelicula: [], serie: [] }; // [{ id, nombre, color, total }] desde la API
-const todasPlataformas = () => [...plataformas.pelicula, ...plataformas.serie];
+const plataformas = { pelicula: [], serie: [], documental: [], docuserie: [] }; // [{ id, nombre, color, total }] desde la API
+const todasPlataformas = () => Object.values(plataformas).flat();
 const nombrePlataforma = (id) => todasPlataformas().find((p) => p.id === id)?.nombre ?? id;
 const colorPlataforma = (id) => todasPlataformas().find((p) => p.id === id)?.color ?? '#555';
-const claveElegidas = (tipo) => (tipo === 'serie' ? 'fg-plataformas-series' : 'fg-plataformas');
+const claveElegidas = (tipo) => CATEGORIAS[tipo].clave;
 // Sin elección guardada se ven todas
 const elegidas = (tipo) => leer(claveElegidas(tipo), null) ?? plataformas[tipo].map((p) => p.id);
 
 async function cargarPlataformas() {
   if (plataformas.pelicula.length) return;
-  [plataformas.pelicula, plataformas.serie] = await Promise.all([api('/plataformas'), api('/plataformas?tipo=serie')]);
+  const listas = await Promise.all(Object.keys(CATEGORIAS).map((c) => api(`/plataformas?tipo=${c}`)));
+  Object.keys(CATEGORIAS).forEach((c, i) => { plataformas[c] = listas[i]; });
 }
 
 function selectorPlataformas(tipo) {
   const lista = plataformas[tipo];
   const sel = elegidas(tipo);
   const resumen = sel.length === lista.length ? 'Todas' : sel.length ? sel.map(nombrePlataforma).join(', ') : 'Ninguna';
-  const [titulo, ayuda] = tipo === 'serie'
-    ? ['Cadenas originales', 'Indica dónde se emitió originalmente cada serie, no dónde puedes verla ahora.']
+  const [titulo, ayuda] = deSeries(tipo)
+    ? ['Cadenas originales', `Indica dónde se emitió originalmente cada ${CATEGORIAS[tipo].unidad[0]}, no dónde puedes verla ahora.`]
     : ['Mis plataformas', ''];
   return `
     <section class="plataformas" aria-labelledby="plat-titulo">
@@ -172,7 +181,7 @@ async function verPortada(tipo) {
   const sel = elegidas(tipo);
   const { destacado, filas } = sel.length ? await api(`/inicio?tipo=${tipo}&plataformas=${sel.join(',')}`) : { destacado: null, filas: [] };
   const y = window.scrollY;
-  const nada = tipo === 'serie' ? 'series' : 'películas';
+  const nada = CATEGORIAS[tipo].unidad[1];
 
   vista.innerHTML = `
     ${destacado ? `
@@ -187,7 +196,7 @@ async function verPortada(tipo) {
             <a class="btn btn-secundario" href="#/titulo/${destacado.id}">${iconos.info} Más información</a>
           </div>
         </div>
-      </section>` : `<div class="pagina-cab sin-destacado"><h1>${tipo === 'serie' ? 'Series' : 'Películas'}</h1></div>`}
+      </section>` : `<div class="pagina-cab sin-destacado"><h1>${CATEGORIAS[tipo].nombre}</h1></div>`}
     <div class="filas ${destacado ? '' : 'sin-destacado-filas'}">
       ${selectorPlataformas(tipo)}
       ${filas.length
@@ -200,11 +209,13 @@ async function verPortada(tipo) {
 
 const verInicio = () => verPortada('pelicula');
 const verSeries = () => verPortada('serie');
+const verDocumentales = () => verPortada('documental');
+const verDocuseries = () => verPortada('docuserie');
 
 async function verCatalogo() {
   await cargarPlataformas();
   const sel = elegidas('pelicula');
-  const lista = sel.length ? await api(`/titulos?tipo=pelicula&plataformas=${sel.join(',')}`) : [];
+  const lista = sel.length ? await api(`/titulos?categoria=pelicula&plataformas=${sel.join(',')}`) : [];
   vista.innerHTML = `
     <div class="pagina">
       <div class="pagina-cab"><h1>Películas</h1></div>
@@ -385,6 +396,8 @@ const rutas = [
   [/^#?\/?$/, verInicio, 'inicio'],
   [/^#\/peliculas/, verCatalogo, 'peliculas'],
   [/^#\/series/, verSeries, 'series'],
+  [/^#\/documentales/, verDocumentales, 'documentales'],
+  [/^#\/docuseries/, verDocuseries, 'docuseries'],
   [/^#\/buscar/, verBusqueda, 'buscar'],
   [/^#\/mi-lista/, verMiLista, 'mi-lista'],
   [/^#\/titulo\/([\w-]+)/, verTitulo, 'titulo'],
@@ -416,6 +429,8 @@ document.getElementById('nav-movil').innerHTML = `
   <a href="#/">${iconos.casa}Inicio</a>
   <a href="#/peliculas">${iconos.peli}Películas</a>
   <a href="#/series">${iconos.tv}Series</a>
+  <a href="#/documentales">${iconos.peli}Docs</a>
+  <a href="#/docuseries">${iconos.tv}Docuseries</a>
   <a href="#/mi-lista">${iconos.lista}Mi lista</a>`;
 
 document.getElementById('buscador').addEventListener('submit', (ev) => {

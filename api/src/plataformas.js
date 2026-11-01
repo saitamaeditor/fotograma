@@ -27,6 +27,13 @@ export const PLATAFORMAS = [
 // En películas se muestran en este orden; en series, en el de la lista de arriba
 const ORDEN_PELICULAS = ['netflix', 'prime', 'disney', 'hbo', 'appletv', 'movistar', 'filmin', 'skyshowtime'];
 
+// Categorías de la web y la app. Documentales y docuseries son películas y series con el
+// género «Documental»; usan las plataformas de películas y las cadenas de series.
+export const CATEGORIAS = ['pelicula', 'serie', 'documental', 'docuserie'];
+export const TIPO_BASE = { pelicula: 'pelicula', serie: 'serie', documental: 'pelicula', docuserie: 'serie' };
+export const esDocumental = (t) => (t.generos ?? []).some((g) => /documental|documentary/i.test(g));
+export const categoriaDe = (t) => (esDocumental(t) ? (t.tipo === 'serie' ? 'docuserie' : 'documental') : t.tipo);
+
 export function deTipo(tipo) {
   if (tipo === 'pelicula') return ORDEN_PELICULAS.map((id) => PLATAFORMAS.find((p) => p.id === id));
   return tipo ? PLATAFORMAS.filter((p) => p.tipos.includes(tipo)) : PLATAFORMAS;
