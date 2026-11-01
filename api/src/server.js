@@ -125,10 +125,15 @@ app.get('/api/inicio', (req, res) => {
 
 // Portada: el destacado y una fila por categoría (Películas, Series, Documentales,
 // Docuseries, Películas anime, Series anime), cada una con lo último añadido primero
+// Las apps hasta la 1.13 (no mandan x-morvehtv-app) solo conocen las seis primeras categorías:
+// sin este filtro se cerrarían al abrir «Programas de TV» o «Novelas turcas»
+const CATEGORIAS_APP_ANTIGUA = ['pelicula', 'serie', 'documental', 'docuserie', 'anime-pelicula', 'anime-serie'];
+const esAppAntigua = (req) => /okhttp/i.test(req.get('user-agent') ?? '') && !req.get('x-morvehtv-app');
+
 app.get('/api/portada', (req, res) => {
   importador.siHaceFalta();
   const todos = titulos.todos();
-  const filas = CATEGORIAS.map((id) => ({
+  const filas = CATEGORIAS.filter((id) => !esAppAntigua(req) || CATEGORIAS_APP_ANTIGUA.includes(id)).map((id) => ({
     id,
     titulo: NOMBRES_CATEGORIA[id],
     items: todos.filter((t) => categoriaDe(t) === id).map((t) => ({ ...publico(t), categoria: id })),

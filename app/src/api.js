@@ -8,7 +8,8 @@ const base = (Constants.expoConfig?.extra?.apiUrl ?? 'https://morvehtv.es').repl
 export const urlApi = () => base;
 
 export async function api(ruta) {
-  const r = await fetch(`${base}/api${ruta}`);
+  // La versión de la app le dice al servidor qué categorías sabe mostrar
+  const r = await fetch(`${base}/api${ruta}`, { headers: { 'x-morvehtv-app': Constants.expoConfig?.version ?? '' } });
   const datos = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(datos.error ?? `Error ${r.status}`);
   return datos;
