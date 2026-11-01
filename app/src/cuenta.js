@@ -3,8 +3,6 @@
 // privados de cada usuario y se ven igual en la web, el móvil y la tele.
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
-import * as WebBrowser from 'expo-web-browser';
-import * as Crypto from 'expo-crypto';
 
 const BASE = (Constants.expoConfig?.extra?.apiUrl ?? 'https://morvehtv.es').replace(/\/$/, '');
 
@@ -71,28 +69,18 @@ async function abrirSesion(r) {
 export const entrar = async (email, contrasena) =>
   abrirSesion(await pedir('/cuenta/entrar', { metodo: 'POST', cuerpo: { email, contrasena } }));
 
-// ¿Está activado «Continuar con Google» en el servidor?
-export const googleDisponible = () => pedir('/cuenta/config').then((c) => Boolean(c.google)).catch(() => false);
-
-// «Continuar con Google»: abre morvehtv.es/entrar-app en el navegador, el usuario elige su
-// cuenta de Google y la web vuelve a la app (morvehtv://cuenta) con un código de un solo
-// uso. Solo esta app puede canjearlo, porque tiene el verificador secreto (PKCE).
-export async function entrarConGoogle() {
-  const verificador = Array.from(Crypto.getRandomBytes(32), (b) => b.toString(16).padStart(2, '0')).join('');
-  const reto = (await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, verificador, { encoding: Crypto.CryptoEncoding.BASE64 }))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  const r = await WebBrowser.openAuthSessionAsync(`${BASE}/entrar-app?reto=${reto}`, 'morvehtv://cuenta');
-  if (r.type !== 'success') return false;
-  const codigo = decodeURIComponent(r.url.match(/[?&]codigo=([^&#]+)/)?.[1] ?? '');
-  if (!codigo) throw new Error('No se pudo entrar con Google. Vuelve a intentarlo.');
-  await abrirSesion(await pedir('/cuenta/canjear', { metodo: 'POST', cuerpo: { codigo, verificador } }));
-  return true;
-}
-
 export const registrar = async (nombre, email, contrasena) =>
   abrirSesion(await pedir('/cuenta/registro', { metodo: 'POST', cuerpo: { nombre, email, contrasena } }));
 
 // Al cerrar sesión se borran del dispositivo los datos de la cuenta
+export async function cambiarNombre(nombre) {
+  const r = await pedir('/cuenta/perfil', { metodo: 'PUT', cuerpo: { nombre }, token: sesion?.token });
+  fijarSesion({ ...sesion, usuario: r.usuario });
+}
+
+export const cambiarContrasena = (actual, nueva) =>
+  pedir('/cuenta/contrasena', { metodo: 'PUT', cuerpo: { actual, nueva }, token: sesion?.token });
+
 export async function salir() {
   await enviarPendientes();
   await AsyncStorage.multiRemove(await clavesLocales());

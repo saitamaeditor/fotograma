@@ -254,84 +254,209 @@ async function verBusqueda() {
 }
 
 // ---------- Cuenta: entrar, registrarse y cerrar sesión ----------
+const TELEGRAM = 'https://t.me/+-NkYOGhz9NMzNGI0';
+const ojo = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>';
+
+// 0 = vacía … 4 = fuerte
+function fuerza(c) {
+  if (!c) return 0;
+  let p = 0;
+  if (c.length >= 6) p++;
+  if (c.length >= 10) p++;
+  if (/[a-z]/.test(c) && /[A-Z]/.test(c)) p++;
+  if (/\d/.test(c) && /[^A-Za-z0-9]/.test(c)) p++;
+  else if (/\d/.test(c) || /[^A-Za-z0-9]/.test(c)) p += 0.5;
+  return Math.max(1, Math.min(4, Math.round(p)));
+}
+const NIVELES = ['', 'Débil', 'Aceptable', 'Buena', 'Fuerte'];
+
+const campo = ({ nombre, etiqueta, tipo = 'text', autocompletar, ayuda = '', extra = '' }) => `
+  <label class="c-campo">
+    <span class="c-etiqueta">${etiqueta}</span>
+    <span class="c-entrada">
+      <input name="${nombre}" type="${tipo}" autocomplete="${autocompletar}" ${extra} />
+      ${tipo === 'password' ? `<button type="button" class="c-ojo" data-ojo aria-label="Mostrar contraseña">${ojo}</button>` : ''}
+    </span>
+    <span class="c-ayuda" data-ayuda="${nombre}">${ayuda}</span>
+  </label>`;
+
+// Muestra u oculta la contraseña de su campo
+function activarOjos(raiz) {
+  raiz.addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-ojo]');
+    if (!b) return;
+    const input = b.parentElement.querySelector('input');
+    const ver = input.type === 'password';
+    input.type = ver ? 'text' : 'password';
+    b.classList.toggle('activo', ver);
+    b.setAttribute('aria-label', ver ? 'Ocultar contraseña' : 'Mostrar contraseña');
+  });
+}
+
 function verCuenta() {
   const u = cuenta.usuario();
-  if (u) {
-    vista.innerHTML = `
-      <div class="pagina cuenta">
-        <div class="pagina-cab"><h1>Mi cuenta</h1></div>
-        <div class="cuenta-caja">
-          <p class="cuenta-nombre">${esc(u.nombre)}</p>
-          <p class="texto-2">${esc(u.email)}</p>
-          <p class="texto-2" style="margin-top:12px">Tu lista, lo que estás viendo y tus plataformas elegidas se guardan en tu cuenta. Entra con el mismo correo en el móvil o la tele para tenerlo todo igual.</p>
-          <form id="form-contrasena" class="cuenta-form">
-            <h2>Cambiar contraseña</h2>
-            <input class="entrada" type="password" name="actual" placeholder="Contraseña actual (vacía si entras con Google)" autocomplete="current-password" />
-            <input class="entrada" type="password" name="nueva" placeholder="Contraseña nueva (mínimo 6)" autocomplete="new-password" minlength="6" required />
-            <button class="btn btn-secundario">Cambiar contraseña</button>
-          </form>
-          <button class="btn btn-peligro" id="salir" style="margin-top:22px">Cerrar sesión</button>
-        </div>
-      </div>`;
-    document.getElementById('salir').onclick = async () => {
-      await cuenta.salir();
-      avisar('Has cerrado sesión');
-      location.hash = '#/';
-    };
-    document.getElementById('form-contrasena').onsubmit = async (ev) => {
-      ev.preventDefault();
-      const f = new FormData(ev.currentTarget);
-      try {
-        await cuenta.cambiarContrasena(f.get('actual'), f.get('nueva'));
-        ev.currentTarget.reset();
-        avisar('Contraseña cambiada');
-      } catch (err) {
-        avisar(err.message, true);
-      }
-    };
-    return;
-  }
+  if (u) return verPerfil(u);
 
   const registro = new URLSearchParams(location.hash.split('?')[1]).has('nueva');
   vista.innerHTML = `
-    <div class="pagina cuenta">
-      <div class="cuenta-caja">
-        <div class="cuenta-pestanas">
-          <a href="#/cuenta" class="${registro ? '' : 'activa'}">Iniciar sesión</a>
-          <a href="#/cuenta?nueva" class="${registro ? 'activa' : ''}">Crear cuenta</a>
+    <div class="c-pagina">
+      <div class="c-caja">
+        <div class="c-logo">Morveh<b>TV</b></div>
+        <h1>${registro ? 'Crea tu cuenta gratis' : 'Bienvenido de nuevo'}</h1>
+        <p class="c-sub">${registro ? 'Tu lista y lo que estás viendo, en la web, el móvil y la tele.' : 'Entra para seguir viendo donde lo dejaste.'}</p>
+        <div class="c-pestanas" role="tablist">
+          <a href="#/cuenta" role="tab" aria-selected="${!registro}" class="${registro ? '' : 'activa'}">Iniciar sesión</a>
+          <a href="#/cuenta?nueva" role="tab" aria-selected="${registro}" class="${registro ? 'activa' : ''}">Crear cuenta</a>
         </div>
-        <div id="google" class="cuenta-google" hidden></div>
-        <div id="google-o" class="cuenta-o" hidden><span>o con tu correo</span></div>
-        <form id="form-cuenta" class="cuenta-form">
-          ${registro ? '<input class="entrada" name="nombre" placeholder="Tu nombre" autocomplete="name" maxlength="40" />' : ''}
-          <input class="entrada" type="email" name="email" placeholder="Correo electrónico" autocomplete="email" required />
-          <input class="entrada" type="password" name="contrasena" placeholder="${registro ? 'Contraseña (mínimo 6 caracteres)' : 'Contraseña'}" autocomplete="${registro ? 'new-password' : 'current-password'}" ${registro ? 'minlength="6"' : ''} required />
-          <button class="btn btn-primario">${registro ? 'Crear cuenta' : 'Entrar'}</button>
-          <p class="error-texto" id="cuenta-error"></p>
+        <form id="form-cuenta" class="c-form" novalidate>
+          ${registro ? campo({ nombre: 'nombre', etiqueta: 'Nombre', autocompletar: 'name', extra: 'maxlength="40" placeholder="Cómo quieres que te llamemos"' }) : ''}
+          ${campo({ nombre: 'email', etiqueta: 'Correo electrónico', tipo: 'email', autocompletar: 'email', extra: 'placeholder="tu@correo.com" required' })}
+          ${campo({ nombre: 'contrasena', etiqueta: 'Contraseña', tipo: 'password', autocompletar: registro ? 'new-password' : 'current-password', extra: `placeholder="${registro ? 'Mínimo 6 caracteres' : 'Tu contraseña'}" required` })}
+          ${registro ? `
+            <div class="c-fuerza" id="fuerza" data-nivel="0"><i></i><i></i><i></i><i></i><span></span></div>
+            ${campo({ nombre: 'repetir', etiqueta: 'Repite la contraseña', tipo: 'password', autocompletar: 'new-password', extra: 'required' })}` : `
+            <button type="button" class="c-olvido" id="olvido">¿Olvidaste tu contraseña?</button>
+            <div class="c-aviso" id="olvido-info" hidden>Escríbenos por <a href="${TELEGRAM}" target="_blank" rel="noopener">Telegram</a> con el correo de tu cuenta y te daremos una contraseña nueva.</div>`}
+          <p class="c-error" id="cuenta-error" role="alert"></p>
+          <button class="btn btn-primario c-enviar">${registro ? 'Crear cuenta' : 'Entrar'}</button>
         </form>
-        <p class="texto-2" style="margin-top:14px">Con una cuenta, tu lista y lo que estás viendo son privados y los tienes igual en la web, el móvil y la tele.</p>
+        ${registro ? `
+          <ul class="c-ventajas">
+            <li>Tu lista privada, igual en todos tus dispositivos</li>
+            <li>Sigue viendo justo donde lo dejaste</li>
+            <li>Gratis y sin anuncios</li>
+          </ul>` : ''}
+        <p class="c-cambiar">${registro ? '¿Ya tienes cuenta? <a href="#/cuenta">Inicia sesión</a>' : '¿No tienes cuenta? <a href="#/cuenta?nueva">Créala gratis</a>'}</p>
       </div>
     </div>`;
-  const google = document.getElementById('google');
-  cuenta.botonGoogle(
-    google,
-    () => { avisar(`Hola, ${cuenta.usuario().nombre}`); location.hash = '#/'; },
-    (err) => { document.getElementById('cuenta-error').textContent = err.message; },
-  ).then(() => { document.getElementById('google-o').hidden = google.hidden; }).catch(() => {});
 
-  document.getElementById('form-cuenta').onsubmit = async (ev) => {
+  const form = document.getElementById('form-cuenta');
+  const error = document.getElementById('cuenta-error');
+  const ayuda = (nombre, texto, mal = true) => {
+    const el = form.querySelector(`[data-ayuda="${nombre}"]`);
+    if (!el) return;
+    el.textContent = texto;
+    el.classList.toggle('mal', Boolean(texto) && mal);
+    el.classList.toggle('bien', Boolean(texto) && !mal);
+  };
+  activarOjos(form);
+  form.querySelector('input').focus();
+
+  document.getElementById('olvido')?.addEventListener('click', () => { document.getElementById('olvido-info').hidden = false; });
+
+  if (registro) {
+    const barra = document.getElementById('fuerza');
+    form.contrasena.addEventListener('input', () => {
+      const n = fuerza(form.contrasena.value);
+      barra.dataset.nivel = n;
+      barra.querySelector('span').textContent = NIVELES[n];
+      if (form.repetir.value) form.repetir.dispatchEvent(new Event('input'));
+    });
+    form.repetir.addEventListener('input', () => {
+      if (!form.repetir.value) return ayuda('repetir', '');
+      const igual = form.repetir.value === form.contrasena.value;
+      ayuda('repetir', igual ? '✓ Coinciden' : 'No coinciden', !igual);
+    });
+  }
+  form.email.addEventListener('blur', () => {
+    const v = form.email.value.trim();
+    ayuda('email', v && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? 'Revisa el correo: falta algo' : '');
+  });
+
+  form.onsubmit = async (ev) => {
     ev.preventDefault();
-    const f = new FormData(ev.currentTarget);
-    const boton = ev.currentTarget.querySelector('button');
+    error.textContent = '';
+    const email = form.email.value.trim();
+    const contrasena = form.contrasena.value;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { ayuda('email', 'Escribe un correo válido'); return form.email.focus(); }
+    if (!contrasena) { error.textContent = 'Escribe tu contraseña'; return form.contrasena.focus(); }
+    if (registro) {
+      if (contrasena.length < 6) { error.textContent = 'La contraseña debe tener al menos 6 caracteres'; return form.contrasena.focus(); }
+      if (form.repetir.value !== contrasena) { ayuda('repetir', 'No coinciden'); return form.repetir.focus(); }
+    }
+    const boton = form.querySelector('.c-enviar');
     boton.disabled = true;
+    boton.classList.add('cargando');
     try {
-      if (registro) await cuenta.registrar(f.get('nombre'), f.get('email'), f.get('contrasena'));
-      else await cuenta.entrar(f.get('email'), f.get('contrasena'));
-      avisar(`Hola, ${cuenta.usuario().nombre}`);
+      if (registro) await cuenta.registrar(form.nombre.value.trim(), email, contrasena);
+      else await cuenta.entrar(email, contrasena);
+      avisar(registro ? `¡Bienvenido, ${cuenta.usuario().nombre}!` : `Hola de nuevo, ${cuenta.usuario().nombre}`);
       location.hash = '#/';
     } catch (err) {
-      document.getElementById('cuenta-error').textContent = err.message;
+      error.textContent = err.message;
       boton.disabled = false;
+      boton.classList.remove('cargando');
+    }
+  };
+}
+
+function verPerfil(u) {
+  const enLista = miLista.ids().length;
+  const empezados = Object.keys(progreso.todo()).length;
+  const desde = u.creado ? new Date(u.creado).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }) : null;
+  vista.innerHTML = `
+    <div class="c-pagina">
+      <div class="c-caja">
+        <div class="c-perfil">
+          <span class="c-avatar">${esc((u.nombre || u.email)[0].toUpperCase())}</span>
+          <div><p class="c-nombre">${esc(u.nombre)}</p><p class="c-sub">${esc(u.email)}${desde ? ` · desde ${esc(desde)}` : ''}</p></div>
+        </div>
+        <div class="c-cifras">
+          <a href="#/mi-lista"><b>${enLista}</b><span>en tu lista</span></a>
+          <div><b>${empezados}</b><span>empezados</span></div>
+        </div>
+        <p class="c-sub" style="margin-bottom:6px">Tu lista y lo que estás viendo se guardan en tu cuenta. Entra con el mismo correo en el móvil o la tele para tenerlo todo igual.</p>
+
+        <details class="c-seccion">
+          <summary>Cambiar nombre</summary>
+          <form id="form-nombre" class="c-form">
+            ${campo({ nombre: 'nombre', etiqueta: 'Nombre', autocompletar: 'name', extra: `maxlength="40" value="${esc(u.nombre)}" required` })}
+            <button class="btn btn-secundario">Guardar nombre</button>
+          </form>
+        </details>
+        <details class="c-seccion">
+          <summary>Cambiar contraseña</summary>
+          <form id="form-contrasena" class="c-form">
+            ${campo({ nombre: 'actual', etiqueta: 'Contraseña actual', tipo: 'password', autocompletar: 'current-password', extra: 'required' })}
+            ${campo({ nombre: 'nueva', etiqueta: 'Contraseña nueva', tipo: 'password', autocompletar: 'new-password', extra: 'minlength="6" placeholder="Mínimo 6 caracteres" required' })}
+            ${campo({ nombre: 'repetir', etiqueta: 'Repite la contraseña nueva', tipo: 'password', autocompletar: 'new-password', extra: 'required' })}
+            <p class="c-error" id="contrasena-error" role="alert"></p>
+            <button class="btn btn-secundario">Cambiar contraseña</button>
+          </form>
+        </details>
+        <button class="btn btn-peligro c-salir" id="salir">Cerrar sesión</button>
+      </div>
+    </div>`;
+  activarOjos(vista);
+
+  document.getElementById('salir').onclick = async () => {
+    await cuenta.salir();
+    avisar('Has cerrado sesión');
+    location.hash = '#/';
+  };
+  document.getElementById('form-nombre').onsubmit = async (ev) => {
+    ev.preventDefault();
+    try {
+      await cuenta.cambiarNombre(ev.currentTarget.nombre.value);
+      avisar('Nombre guardado');
+      verCuenta();
+    } catch (err) {
+      avisar(err.message, true);
+    }
+  };
+  document.getElementById('form-contrasena').onsubmit = async (ev) => {
+    ev.preventDefault();
+    const f = ev.currentTarget;
+    const error = document.getElementById('contrasena-error');
+    error.textContent = '';
+    if (f.nueva.value.length < 6) return (error.textContent = 'La contraseña nueva debe tener al menos 6 caracteres');
+    if (f.nueva.value !== f.repetir.value) return (error.textContent = 'Las contraseñas nuevas no coinciden');
+    try {
+      await cuenta.cambiarContrasena(f.actual.value, f.nueva.value);
+      f.reset();
+      avisar('Contraseña cambiada');
+    } catch (err) {
+      error.textContent = err.message;
     }
   };
 }

@@ -54,34 +54,6 @@ export async function entrar(email, contrasena) {
   await abrirSesion(await api('/cuenta/entrar', { metodo: 'POST', cuerpo: { email, contrasena } }));
 }
 
-export async function entrarGoogle(credencial) {
-  await abrirSesion(await api('/cuenta/google', { metodo: 'POST', cuerpo: { credencial } }));
-}
-
-// Botón oficial «Continuar con Google» (Google Identity Services) dentro de `contenedor`.
-// No pinta nada si el acceso con Google aún no está configurado en el servidor.
-let gsi = null;
-export async function botonGoogle(contenedor, alEntrar, alFallar) {
-  const { google: clientId } = await api('/cuenta/config').catch(() => ({}));
-  if (!clientId) return;
-  gsi ??= new Promise((ok, ko) => {
-    const s = document.createElement('script');
-    s.src = 'https://accounts.google.com/gsi/client';
-    s.onload = ok;
-    s.onerror = ko;
-    document.head.append(s);
-  });
-  await gsi;
-  window.google.accounts.id.initialize({
-    client_id: clientId,
-    callback: async ({ credential }) => {
-      try { await entrarGoogle(credential); alEntrar(); } catch (err) { alFallar(err); }
-    },
-  });
-  window.google.accounts.id.renderButton(contenedor, { theme: 'filled_black', size: 'large', shape: 'pill', text: 'continue_with', width: Math.min(contenedor.clientWidth || 360, 400), locale: 'es' });
-  contenedor.hidden = false;
-}
-
 export async function registrar(nombre, email, contrasena) {
   await abrirSesion(await api('/cuenta/registro', { metodo: 'POST', cuerpo: { nombre, email, contrasena } }));
 }
@@ -92,6 +64,11 @@ export async function salir() {
   await enviarPendientes();
   for (const k of clavesLocales()) localStorage.removeItem(k);
   guardarSesion(null);
+}
+
+export async function cambiarNombre(nombre) {
+  const r = await api('/cuenta/perfil', { metodo: 'PUT', cuerpo: { nombre }, token: sesion?.token });
+  guardarSesion({ ...sesion, usuario: r.usuario });
 }
 
 export const cambiarContrasena = (actual, nueva) =>

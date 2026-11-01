@@ -208,7 +208,61 @@ h1, h2, h3 { font-weight: 800; letter-spacing: -0.02em; }
 }
 
 
-/* Cuenta: botón de Google y separador */
-.cuenta-google { display: flex; justify-content: center; min-height: 44px; margin-bottom: 4px; }
-.cuenta-o { display: flex; align-items: center; gap: 12px; margin: 14px 0 10px; color: var(--texto-2); font-size: 13px; }
-.cuenta-o::before, .cuenta-o::after { content: ''; flex: 1; height: 1px; background: #2a2a35; }
+/* Cuenta (entrar, crear cuenta y perfil) */
+.c-pagina { min-height: calc(100vh - 140px); display: grid; place-items: center; padding: 110px 16px 60px; }
+.c-caja { width: min(100%, 440px); padding: 30px 26px; border-radius: 20px; background: linear-gradient(180deg, #16171f, #111219); border: 1px solid #262735; box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5); }
+.c-logo { font-weight: 900; font-size: 20px; letter-spacing: -0.02em; margin-bottom: 18px; }
+.c-logo b { color: var(--acento); }
+.c-caja h1 { font-size: 28px; font-weight: 800; letter-spacing: -0.02em; color: #fff; }
+.c-sub { color: var(--texto-2); font-size: 14px; line-height: 1.5; margin-top: 6px; }
+.c-pestanas { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; margin: 22px 0 18px; border-radius: 12px; background: #0c0d13; border: 1px solid #22232f; }
+.c-pestanas a { text-align: center; padding: 10px; border-radius: 9px; color: var(--texto-2); font-weight: 700; font-size: 14px; }
+.c-pestanas a.activa { background: #262735; color: #fff; }
+.c-form { display: grid; gap: 14px; }
+.c-campo { display: grid; gap: 6px; }
+.c-etiqueta { font-size: 13px; font-weight: 600; color: #d4d6e0; }
+.c-entrada { position: relative; display: flex; }
+.c-entrada input { width: 100%; padding: 13px 14px; border-radius: 10px; border: 1px solid #343545; background: #0c0d13; color: #fff; font-size: 15px; transition: border-color 0.15s, box-shadow 0.15s; }
+.c-entrada input:focus { outline: 0; border-color: var(--acento); box-shadow: 0 0 0 3px rgba(227, 27, 35, 0.2); }
+.c-entrada input[type="password"], .c-entrada input[name="contrasena"], .c-entrada input[name="repetir"], .c-entrada input[name="actual"], .c-entrada input[name="nueva"] { padding-right: 46px; }
+.c-ojo { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 36px; height: 36px; border-radius: 8px; display: grid; place-items: center; color: var(--texto-2); background: none; border: 0; cursor: pointer; }
+.c-ojo svg { width: 18px; height: 18px; }
+.c-ojo:hover, .c-ojo.activo { color: #fff; }
+.c-ayuda { font-size: 12.5px; min-height: 0; color: var(--texto-2); }
+.c-ayuda:empty { display: none; }
+.c-ayuda.mal { color: #ef5b5b; }
+.c-ayuda.bien { color: #4fd18b; }
+.c-fuerza { display: grid; grid-template-columns: repeat(4, 1fr) auto; gap: 5px; align-items: center; margin-top: -6px; }
+.c-fuerza i { height: 4px; border-radius: 2px; background: #2a2b38; transition: background 0.2s; }
+.c-fuerza span { font-size: 12px; color: var(--texto-2); min-width: 64px; text-align: right; }
+.c-fuerza[data-nivel="1"] i:nth-child(-n+1) { background: #ef5b5b; }
+.c-fuerza[data-nivel="2"] i:nth-child(-n+2) { background: #f5a524; }
+.c-fuerza[data-nivel="3"] i:nth-child(-n+3) { background: #a3d14f; }
+.c-fuerza[data-nivel="4"] i { background: #4fd18b; }
+.c-olvido { justify-self: end; margin-top: -6px; background: none; border: 0; color: var(--texto-2); font-size: 13px; cursor: pointer; text-decoration: underline; }
+.c-olvido:hover { color: #fff; }
+.c-aviso { padding: 12px 14px; border-radius: 10px; background: rgba(255, 255, 255, 0.05); color: var(--texto-2); font-size: 13.5px; line-height: 1.5; }
+.c-aviso a { color: #fff; font-weight: 700; text-decoration: underline; }
+.c-error { color: #ef5b5b; font-size: 14px; }
+.c-error:empty { display: none; }
+.c-enviar { width: 100%; padding: 14px; font-size: 16px; border-radius: 10px; justify-content: center; background: var(--acento); color: #fff; }
+.c-enviar:hover { background: #f0303a; }
+.c-enviar.cargando { opacity: 0.7; pointer-events: none; }
+.c-enviar.cargando::after { content: ''; width: 16px; height: 16px; margin-left: 8px; border: 2px solid rgba(255, 255, 255, 0.4); border-top-color: #fff; border-radius: 50%; animation: girar 0.7s linear infinite; }
+@keyframes girar { to { transform: rotate(360deg); } }
+.c-ventajas { list-style: none; padding: 0; margin: 20px 0 0; display: grid; gap: 8px; }
+.c-ventajas li { color: var(--texto-2); font-size: 13.5px; padding-left: 24px; position: relative; }
+.c-ventajas li::before { content: '✓'; position: absolute; left: 0; color: #4fd18b; font-weight: 900; }
+.c-cambiar { margin-top: 22px; text-align: center; color: var(--texto-2); font-size: 14px; }
+.c-cambiar a { color: #fff; font-weight: 700; }
+.c-perfil { display: flex; align-items: center; gap: 14px; }
+.c-avatar { flex: none; width: 58px; height: 58px; border-radius: 50%; display: grid; place-items: center; background: linear-gradient(135deg, var(--acento), #7a0c12); color: #fff; font-size: 26px; font-weight: 900; }
+.c-nombre { font-size: 22px; font-weight: 800; color: #fff; }
+.c-cifras { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 20px 0 16px; }
+.c-cifras > * { padding: 14px; border-radius: 12px; background: #0c0d13; border: 1px solid #22232f; display: grid; }
+.c-cifras b { font-size: 24px; color: #fff; }
+.c-cifras span { font-size: 13px; color: var(--texto-2); }
+.c-seccion { margin-top: 12px; border-top: 1px solid #22232f; padding-top: 12px; }
+.c-seccion summary { cursor: pointer; font-weight: 700; color: #fff; padding: 4px 0; }
+.c-seccion .c-form { margin-top: 12px; }
+.c-salir { width: 100%; margin-top: 20px; justify-content: center; }

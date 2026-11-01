@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  View, Text, Image, ScrollView, FlatList, RefreshControl, StyleSheet, useWindowDimensions,
+  View, Text, Image, ScrollView, FlatList, RefreshControl, StyleSheet, useWindowDimensions, Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api, miLista, progreso, siguienteEpisodio, urlApi, cargarPlataformas, misPlataformas } from './api';
@@ -37,73 +37,192 @@ function BotonCuenta({ nav, style }) {
 }
 
 // ---------- Cuenta ----------
-export function Cuenta({ nav }) {
-  const ins = useSafeAreaInsets();
-  const u = useUsuario();
-  const [registro, setRegistro] = useState(false);
-  const [campos, setCampos] = useState({ nombre: '', email: '', contrasena: '' });
-  const [estado, setEstado] = useState({ cargando: false, error: '' });
-  const [conGoogle, setConGoogle] = useState(false);
-  useEffect(() => { cuenta.googleDisponible().then(setConGoogle); }, []);
-  const poner = (k) => (v) => setCampos((c) => ({ ...c, [k]: v }));
+const TELEGRAM = 'https://t.me/+-NkYOGhz9NMzNGI0';
+const correoValido = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 
-  async function google() {
-    setEstado({ cargando: true, error: '' });
-    try {
-      if (await cuenta.entrarConGoogle()) return nav.atras();
-      setEstado({ cargando: false, error: '' });
-    } catch (err) {
-      setEstado({ cargando: false, error: err.message });
-    }
-  }
+// 0 = vacía … 4 = fuerte
+function fuerza(cl) {
+  if (!cl) return 0;
+  let p = 0;
+  if (cl.length >= 6) p++;
+  if (cl.length >= 10) p++;
+  if (/[a-z]/.test(cl) && /[A-Z]/.test(cl)) p++;
+  if (/\d/.test(cl) && /[^A-Za-z0-9]/.test(cl)) p++;
+  else if (/\d/.test(cl) || /[^A-Za-z0-9]/.test(cl)) p += 0.5;
+  return Math.max(1, Math.min(4, Math.round(p)));
+}
+const NIVELES = [['', c.borde], ['Débil', '#ef5b5b'], ['Aceptable', '#f5a524'], ['Buena', '#a3d14f'], ['Fuerte', '#4fd18b']];
+
+// Campo con etiqueta, y botón «Ver» en las contraseñas
+function Campo({ etiqueta, ayuda, ayudaBien, contrasena, ...props }) {
+  const [ver, setVer] = useState(false);
+  return (
+    <View style={{ gap: 6 }}>
+      <Text style={e.etiqueta}>{etiqueta}</Text>
+      <View style={{ justifyContent: 'center' }}>
+        <Entrada
+          {...props}
+          secureTextEntry={contrasena && !ver}
+          autoCapitalize={contrasena || props.keyboardType === 'email-address' ? 'none' : props.autoCapitalize}
+          autoCorrect={false}
+          placeholderTextColor={c.texto3}
+          style={[e.entrada, contrasena && { paddingRight: 64 }]}
+        />
+        {contrasena && (
+          <Enfocable radio={8} escala={1} onPress={() => setVer(!ver)} style={e.ver}>
+            <Text style={{ color: c.texto2, fontWeight: '700', fontSize: 13 }}>{ver ? 'Ocultar' : 'Ver'}</Text>
+          </Enfocable>
+        )}
+      </View>
+      {ayuda ? <Text style={{ color: ayudaBien ? '#4fd18b' : c.peligro, fontSize: 12.5 }}>{ayuda}</Text> : null}
+    </View>
+  );
+}
+
+export function Cuenta({ nav }) {
+  const u = useUsuario();
+  return u ? <Perfil nav={nav} u={u} /> : <Acceso nav={nav} />;
+}
+
+function Acceso({ nav }) {
+  const ins = useSafeAreaInsets();
+  const [registro, setRegistro] = useState(false);
+  const [campos, setCampos] = useState({ nombre: '', email: '', contrasena: '', repetir: '' });
+  const [estado, setEstado] = useState({ cargando: false, error: '' });
+  const [olvido, setOlvido] = useState(false);
+  const poner = (k) => (v) => setCampos((x) => ({ ...x, [k]: v }));
+  const nivel = fuerza(campos.contrasena);
+  const coinciden = campos.repetir && campos.repetir === campos.contrasena;
+  const correoMal = campos.email.length > 3 && campos.email.includes('@') && !correoValido(campos.email);
 
   async function enviar() {
+    if (!correoValido(campos.email)) return setEstado({ cargando: false, error: 'Escribe un correo válido' });
+    if (!campos.contrasena) return setEstado({ cargando: false, error: 'Escribe tu contraseña' });
+    if (registro && campos.contrasena.length < 6) return setEstado({ cargando: false, error: 'La contraseña debe tener al menos 6 caracteres' });
+    if (registro && !coinciden) return setEstado({ cargando: false, error: 'Las contraseñas no coinciden' });
     setEstado({ cargando: true, error: '' });
     try {
-      if (registro) await cuenta.registrar(campos.nombre, campos.email, campos.contrasena);
-      else await cuenta.entrar(campos.email, campos.contrasena);
+      if (registro) await cuenta.registrar(campos.nombre.trim(), campos.email.trim(), campos.contrasena);
+      else await cuenta.entrar(campos.email.trim(), campos.contrasena);
       nav.atras();
     } catch (err) {
       setEstado({ cargando: false, error: err.message });
     }
   }
 
+  const cambiarModo = (r) => { setRegistro(r); setEstado({ cargando: false, error: '' }); setOlvido(false); };
+
   return (
-    <ScrollView contentContainerStyle={{ padding: 20, paddingTop: ins.top + 16, gap: 14 }} keyboardShouldPersistTaps="handled">
+    <ScrollView contentContainerStyle={[e.cuentaCont, { paddingTop: ins.top + 16 }]} keyboardShouldPersistTaps="handled">
       <Enfocable radio={19} onPress={nav.atras} style={e.atrasCuenta}><Text style={{ color: c.texto, fontSize: 22 }}>‹</Text></Enfocable>
-      {u ? (
-        <>
-          <Text style={e.h1}>Mi cuenta</Text>
-          <Text style={{ color: c.texto, fontSize: 20, fontWeight: '800' }}>{u.nombre}</Text>
-          <Text style={{ color: c.texto2 }}>{u.email}</Text>
-          <Text style={{ color: c.texto2, lineHeight: 20 }}>Tu lista, lo que estás viendo y tus plataformas elegidas se guardan en tu cuenta. Entra con el mismo correo en la web, el móvil o la tele para tenerlo todo igual.</Text>
-          <Boton texto="Cerrar sesión" tipo="secundario" onPress={async () => { await cuenta.salir(); nav.atras(); }} style={{ alignSelf: 'flex-start', marginTop: 10 }} />
-        </>
-      ) : (
-        <>
-          <Text style={e.h1}>{registro ? 'Crear cuenta' : 'Iniciar sesión'}</Text>
-          <Text style={{ color: c.texto2, lineHeight: 20 }}>Con una cuenta, tu lista y lo que estás viendo son privados y los tienes igual en la web, el móvil y la tele.</Text>
-          {conGoogle && (
-            <>
-              <Enfocable radio={999} onPress={google} disabled={estado.cargando} style={e.botonGoogle} hasTVPreferredFocus>
-                <Text style={e.botonGoogleG}>G</Text>
-                <Text style={e.botonGoogleTexto}>Continuar con Google</Text>
-              </Enfocable>
-              <Text style={{ color: c.texto3, textAlign: 'center', fontSize: 13 }}>— o con tu correo —</Text>
-            </>
-          )}
-          {registro && <Entrada value={campos.nombre} onChangeText={poner('nombre')} placeholder="Tu nombre" placeholderTextColor={c.texto3} style={e.entrada} autoComplete="name" maxLength={40} />}
-          <Entrada value={campos.email} onChangeText={poner('email')} placeholder="Correo electrónico" placeholderTextColor={c.texto3} style={e.entrada} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} autoComplete="email" />
-          <Entrada value={campos.contrasena} onChangeText={poner('contrasena')} placeholder={registro ? 'Contraseña (mínimo 6 caracteres)' : 'Contraseña'} placeholderTextColor={c.texto3} style={e.entrada} secureTextEntry autoCapitalize="none" onSubmitEditing={enviar} />
-          {estado.error ? <Text style={{ color: c.peligro }}>{estado.error}</Text> : null}
-          <Boton texto={estado.cargando ? 'Un momento…' : registro ? 'Crear cuenta' : 'Entrar'} onPress={enviar} disabled={estado.cargando} />
-          <Boton
-            texto={registro ? '¿Ya tienes cuenta? Inicia sesión' : '¿No tienes cuenta? Créala gratis'}
-            tipo="secundario"
-            onPress={() => { setRegistro(!registro); setEstado({ cargando: false, error: '' }); }}
-          />
-        </>
-      )}
+      <View style={e.cuentaCaja}>
+        <Text style={e.cuentaLogo}>Morveh<Text style={{ color: c.acento }}>TV</Text></Text>
+        <Text style={e.h1}>{registro ? 'Crea tu cuenta gratis' : 'Bienvenido de nuevo'}</Text>
+        <Text style={{ color: c.texto2, lineHeight: 20 }}>{registro ? 'Tu lista y lo que estás viendo, en la web, el móvil y la tele.' : 'Entra para seguir viendo donde lo dejaste.'}</Text>
+
+        <View style={e.pestanas}>
+          {[['Iniciar sesión', false], ['Crear cuenta', true]].map(([txt, r]) => (
+            <Enfocable key={txt} radio={9} escala={1} onPress={() => cambiarModo(r)} style={[e.pestana, registro === r && e.pestanaActiva]}>
+              <Text style={{ color: registro === r ? '#fff' : c.texto2, fontWeight: '700' }}>{txt}</Text>
+            </Enfocable>
+          ))}
+        </View>
+
+        {registro && <Campo etiqueta="Nombre" value={campos.nombre} onChangeText={poner('nombre')} placeholder="Cómo quieres que te llamemos" autoComplete="name" maxLength={40} />}
+        <Campo etiqueta="Correo electrónico" value={campos.email} onChangeText={poner('email')} placeholder="tu@correo.com" keyboardType="email-address" autoComplete="email" ayuda={correoMal ? 'Revisa el correo: falta algo' : ''} />
+        <Campo etiqueta="Contraseña" contrasena value={campos.contrasena} onChangeText={poner('contrasena')} placeholder={registro ? 'Mínimo 6 caracteres' : 'Tu contraseña'} autoComplete={registro ? 'new-password' : 'password'} onSubmitEditing={registro ? undefined : enviar} />
+        {registro && (
+          <>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: -4 }}>
+              {[1, 2, 3, 4].map((i) => <View key={i} style={[e.barraFuerza, { backgroundColor: nivel >= i ? NIVELES[nivel][1] : c.borde }]} />)}
+              <Text style={{ color: c.texto2, fontSize: 12, width: 70, textAlign: 'right' }}>{NIVELES[nivel][0]}</Text>
+            </View>
+            <Campo etiqueta="Repite la contraseña" contrasena value={campos.repetir} onChangeText={poner('repetir')} autoComplete="new-password" onSubmitEditing={enviar}
+              ayuda={campos.repetir ? (coinciden ? '✓ Coinciden' : 'No coinciden') : ''} ayudaBien={coinciden} />
+          </>
+        )}
+        {!registro && (
+          <Enfocable radio={6} escala={1} onPress={() => setOlvido(!olvido)} style={{ alignSelf: 'flex-end', padding: 4 }}>
+            <Text style={{ color: c.texto2, textDecorationLine: 'underline', fontSize: 13 }}>¿Olvidaste tu contraseña?</Text>
+          </Enfocable>
+        )}
+        {olvido && (
+          <View style={e.avisoCuenta}>
+            <Text style={{ color: c.texto2, lineHeight: 19, fontSize: 13.5 }}>Escríbenos por Telegram con el correo de tu cuenta y te daremos una contraseña nueva.</Text>
+            <Boton texto="Abrir Telegram" tipo="secundario" onPress={() => Linking.openURL(TELEGRAM)} style={{ alignSelf: 'flex-start', marginTop: 10, paddingVertical: 8 }} />
+          </View>
+        )}
+        {estado.error ? <Text style={{ color: c.peligro }}>{estado.error}</Text> : null}
+        <Boton texto={estado.cargando ? 'Un momento…' : registro ? 'Crear cuenta' : 'Entrar'} onPress={enviar} disabled={estado.cargando} style={{ marginTop: 4 }} />
+        {registro && (
+          <View style={{ gap: 6, marginTop: 6 }}>
+            {['Tu lista privada, igual en todos tus dispositivos', 'Sigue viendo justo donde lo dejaste', 'Gratis y sin anuncios'].map((t) => (
+              <Text key={t} style={{ color: c.texto2, fontSize: 13 }}><Text style={{ color: '#4fd18b', fontWeight: '900' }}>✓  </Text>{t}</Text>
+            ))}
+          </View>
+        )}
+      </View>
+    </ScrollView>
+  );
+}
+
+function Perfil({ nav, u }) {
+  const ins = useSafeAreaInsets();
+  const [cifras, setCifras] = useState({ lista: 0, empezados: 0 });
+  const [nombre, setNombre] = useState(u.nombre);
+  const [claves, setClaves] = useState({ actual: '', nueva: '', repetir: '' });
+  const [aviso, setAviso] = useState({ texto: '', bien: false });
+  useEffect(() => {
+    Promise.all([miLista.ids(), progreso.todo()]).then(([l, p]) => setCifras({ lista: l.length, empezados: Object.keys(p).length }));
+  }, []);
+  const desde = u.creado ? new Date(u.creado).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }) : null;
+
+  async function guardarNombre() {
+    try { await cuenta.cambiarNombre(nombre); setAviso({ texto: 'Nombre guardado', bien: true }); }
+    catch (err) { setAviso({ texto: err.message, bien: false }); }
+  }
+  async function guardarClave() {
+    if (claves.nueva.length < 6) return setAviso({ texto: 'La contraseña nueva debe tener al menos 6 caracteres', bien: false });
+    if (claves.nueva !== claves.repetir) return setAviso({ texto: 'Las contraseñas nuevas no coinciden', bien: false });
+    try {
+      await cuenta.cambiarContrasena(claves.actual, claves.nueva);
+      setClaves({ actual: '', nueva: '', repetir: '' });
+      setAviso({ texto: 'Contraseña cambiada', bien: true });
+    } catch (err) {
+      setAviso({ texto: err.message, bien: false });
+    }
+  }
+
+  return (
+    <ScrollView contentContainerStyle={[e.cuentaCont, { paddingTop: ins.top + 16 }]} keyboardShouldPersistTaps="handled">
+      <Enfocable radio={19} onPress={nav.atras} style={e.atrasCuenta}><Text style={{ color: c.texto, fontSize: 22 }}>‹</Text></Enfocable>
+      <View style={e.cuentaCaja}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+          <View style={e.avatar}><Text style={{ color: '#fff', fontSize: 26, fontWeight: '900' }}>{(u.nombre || u.email)[0].toUpperCase()}</Text></View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: '#fff', fontSize: 21, fontWeight: '800' }} numberOfLines={1}>{u.nombre}</Text>
+            <Text style={{ color: c.texto2, fontSize: 13 }} numberOfLines={1}>{u.email}{desde ? ` · desde ${desde}` : ''}</Text>
+          </View>
+        </View>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <View style={e.cifra}><Text style={e.cifraNum}>{cifras.lista}</Text><Text style={e.cifraTxt}>en tu lista</Text></View>
+          <View style={e.cifra}><Text style={e.cifraNum}>{cifras.empezados}</Text><Text style={e.cifraTxt}>empezados</Text></View>
+        </View>
+        <Text style={{ color: c.texto2, lineHeight: 20, fontSize: 13.5 }}>Tu lista y lo que estás viendo se guardan en tu cuenta. Entra con el mismo correo en la web o la tele para tenerlo todo igual.</Text>
+
+        <Text style={e.seccionCuenta}>Cambiar nombre</Text>
+        <Campo etiqueta="Nombre" value={nombre} onChangeText={setNombre} maxLength={40} autoComplete="name" />
+        <Boton texto="Guardar nombre" tipo="secundario" onPress={guardarNombre} />
+
+        <Text style={e.seccionCuenta}>Cambiar contraseña</Text>
+        <Campo etiqueta="Contraseña actual" contrasena value={claves.actual} onChangeText={(v) => setClaves((x) => ({ ...x, actual: v }))} autoComplete="password" />
+        <Campo etiqueta="Contraseña nueva" contrasena value={claves.nueva} onChangeText={(v) => setClaves((x) => ({ ...x, nueva: v }))} placeholder="Mínimo 6 caracteres" autoComplete="new-password" />
+        <Campo etiqueta="Repite la contraseña nueva" contrasena value={claves.repetir} onChangeText={(v) => setClaves((x) => ({ ...x, repetir: v }))} autoComplete="new-password" />
+        <Boton texto="Cambiar contraseña" tipo="secundario" onPress={guardarClave} />
+
+        {aviso.texto ? <Text style={{ color: aviso.bien ? '#4fd18b' : c.peligro }}>{aviso.texto}</Text> : null}
+        <Boton texto="Cerrar sesión" tipo="secundario" onPress={async () => { await cuenta.salir(); nav.atras(); }} style={{ marginTop: 12, borderWidth: 1, borderColor: c.peligro }} />
+      </View>
     </ScrollView>
   );
 }
@@ -436,9 +555,21 @@ export function Ficha({ nav, params }) {
 }
 
 const e = StyleSheet.create({
-  botonGoogle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 12, borderRadius: 999, backgroundColor: '#fff' },
-  botonGoogleG: { color: '#4285F4', fontSize: 18, fontWeight: '900' },
-  botonGoogleTexto: { color: '#1f1f1f', fontSize: 15, fontWeight: '700' },
+  cuentaCont: { padding: 16, paddingBottom: 40, gap: 14, alignItems: 'center' },
+  cuentaCaja: { width: '100%', maxWidth: 460, gap: 14, padding: 20, borderRadius: 18, backgroundColor: '#14151d', borderWidth: 1, borderColor: '#262735' },
+  cuentaLogo: { color: '#fff', fontSize: 19, fontWeight: '900' },
+  pestanas: { flexDirection: 'row', gap: 4, padding: 4, borderRadius: 12, backgroundColor: '#0c0d13', borderWidth: 1, borderColor: '#22232f' },
+  pestana: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 9 },
+  pestanaActiva: { backgroundColor: '#262735' },
+  etiqueta: { color: '#d4d6e0', fontSize: 13, fontWeight: '600' },
+  ver: { position: 'absolute', right: 6, paddingHorizontal: 10, paddingVertical: 8 },
+  barraFuerza: { flex: 1, height: 4, borderRadius: 2 },
+  avisoCuenta: { padding: 12, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.05)' },
+  avatar: { width: 58, height: 58, borderRadius: 29, alignItems: 'center', justifyContent: 'center', backgroundColor: c.acento },
+  cifra: { flex: 1, padding: 14, borderRadius: 12, backgroundColor: '#0c0d13', borderWidth: 1, borderColor: '#22232f' },
+  cifraNum: { color: '#fff', fontSize: 24, fontWeight: '800' },
+  cifraTxt: { color: c.texto2, fontSize: 13 },
+  seccionCuenta: { color: '#fff', fontWeight: '800', fontSize: 16, marginTop: 10, paddingTop: 14, borderTopWidth: 1, borderTopColor: '#22232f' },
   botonCuenta: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: c.acento, maxWidth: 170 },
   botonCuentaConectado: { backgroundColor: 'rgba(0,0,0,0.55)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)' },
   botonCuentaTexto: { color: '#fff', fontWeight: '700', fontSize: 13 },
