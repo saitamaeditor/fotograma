@@ -28,15 +28,28 @@ export const PLATAFORMAS = [
 const ORDEN_PELICULAS = ['netflix', 'prime', 'disney', 'hbo', 'appletv', 'movistar', 'filmin', 'skyshowtime'];
 
 // Categorías de la web y la app. Documentales y docuseries son películas y series con el
-// género «Documental»; usan las plataformas de películas y las cadenas de series.
-export const CATEGORIAS = ['pelicula', 'serie', 'documental', 'docuserie'];
-export const TIPO_BASE = { pelicula: 'pelicula', serie: 'serie', documental: 'pelicula', docuserie: 'serie' };
+// género «Documental»; el anime, las que tienen el género «Anime».
+export const CATEGORIAS = ['pelicula', 'serie', 'documental', 'docuserie', 'anime-pelicula', 'anime-serie'];
+export const NOMBRES_CATEGORIA = {
+  pelicula: 'Películas', serie: 'Series', documental: 'Documentales', docuserie: 'Docuseries',
+  'anime-pelicula': 'Películas anime', 'anime-serie': 'Series anime',
+};
+export const TIPO_BASE = { pelicula: 'pelicula', serie: 'serie', documental: 'pelicula', docuserie: 'serie', 'anime-pelicula': 'pelicula', 'anime-serie': 'serie' };
+export const esAnime = (t) => (t.generos ?? []).some((g) => /^anime$/i.test(g));
+// Un vídeo en una carpeta con «anime» en el nombre («07 - ANIME», «08 - SERIES ANIME») es anime
+export const carpetaAnime = (key) => /anime/i.test(carpeta(key));
+export const conAnime = (generos = []) => (esAnime({ generos }) ? generos : ['Anime', ...generos]);
 export const esDocumental = (t) => (t.generos ?? []).some((g) => /documental|documentary/i.test(g));
 // Un vídeo en una carpeta como «05 - DOCUMENTALES» o «06 - DOCUSERIES» es documental aunque
 // TMDB no le ponga ese género (a muchos documentales no les pone ninguno)
 export const carpetaDocumental = (key) => /docu/i.test(carpeta(key));
 export const conDocumental = (generos = []) => (esDocumental({ generos }) ? generos : ['Documental', ...generos]);
-export const categoriaDe = (t) => (esDocumental(t) ? (t.tipo === 'serie' ? 'docuserie' : 'documental') : t.tipo);
+export function categoriaDe(t) {
+  const serie = t.tipo === 'serie';
+  if (esAnime(t)) return serie ? 'anime-serie' : 'anime-pelicula';
+  if (esDocumental(t)) return serie ? 'docuserie' : 'documental';
+  return t.tipo;
+}
 
 export function deTipo(tipo) {
   if (tipo === 'pelicula') return ORDEN_PELICULAS.map((id) => PLATAFORMAS.find((p) => p.id === id));

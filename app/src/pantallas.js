@@ -3,8 +3,8 @@ import {
   View, Text, Image, ScrollView, FlatList, RefreshControl, StyleSheet, useWindowDimensions, Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { api, miLista, progreso, siguienteEpisodio, urlApi, cargarPlataformas, misPlataformas } from './api';
-import { Fila, Tarjeta, Boton, Cargando, Vacio, SelectorPlataformas, EtiquetasPlataforma, Enfocable, Entrada } from './componentes';
+import { api, miLista, progreso, siguienteEpisodio, urlApi } from './api';
+import { Fila, Tarjeta, Boton, Cargando, Vacio, Enfocable, Entrada } from './componentes';
 import * as cuenta from './cuenta';
 import { c } from './tema';
 
@@ -275,121 +275,93 @@ function ErrorConexion({ error, recargar, nav }) {
 }
 
 // ---------- Inicio (películas) y Series ----------
-// Plataformas disponibles y las elegidas en cada sección; al cambiarlas se guardan en el móvil
-function usePlataformas(tipo = 'pelicula') {
-  const [estado, setEstado] = useState({ lista: null, elegidas: [], error: null });
-  const [intento, setIntento] = useState(0);
-  useEffect(() => {
-    cargarPlataformas(tipo)
-      .then(async (lista) => setEstado({ lista, elegidas: await misPlataformas.obtener(tipo), error: null }))
-      .catch((error) => setEstado({ lista: null, elegidas: [], error }));
-  }, [intento, tipo]);
-  const reintentar = () => setIntento((n) => n + 1);
-  const cambiar = (elegidas) => {
-    setEstado((s) => ({ ...s, elegidas }));
-    misPlataformas.guardar(tipo, elegidas);
-  };
-  return { ...estado, cambiar, reintentar };
-}
-
-// Categorías: documentales y docuseries son títulos con el género «Documental»
+// Las seis categorías. Documentales y docuseries llevan el género «Documental»; el anime, «Anime».
 const CATEGORIAS = {
-  pelicula: { nombre: 'Películas', unidad: 'películas', marca: '' },
-  serie: { nombre: 'Series', unidad: 'series', marca: 'SERIES' },
-  documental: { nombre: 'Documentales', unidad: 'documentales', marca: 'DOCUMENTALES' },
-  docuserie: { nombre: 'Docuseries', unidad: 'docuseries', marca: 'DOCUSERIES' },
+  pelicula: { nombre: 'Películas', unidad: 'películas' },
+  serie: { nombre: 'Series', unidad: 'series' },
+  documental: { nombre: 'Documentales', unidad: 'documentales' },
+  docuserie: { nombre: 'Docuseries', unidad: 'docuseries' },
+  'anime-pelicula': { nombre: 'Películas anime', unidad: 'películas anime' },
+  'anime-serie': { nombre: 'Series anime', unidad: 'series anime' },
 };
 
-// Portada: destacado, selector y una fila por plataforma (películas) o cadena (series)
-function Portada({ nav, tipo }) {
+// Inicio: el destacado y una fila por categoría, con «Ver todo» para abrir cada una
+export function Inicio({ nav }) {
   const { width, height } = useWindowDimensions();
   const ins = useSafeAreaInsets();
-  const plat = usePlataformas(tipo);
-  const clave = plat.elegidas.join(',');
-  const { datos, error, cargando, recargar } = useDatos(async () => {
-    if (!plat.lista) return null;
-    return clave ? api(`/inicio?tipo=${tipo}&plataformas=${clave}`) : { destacado: null, filas: [] };
-  }, [plat.lista, clave]);
-
-  if (plat.error) return <ErrorConexion error={plat.error} recargar={plat.reintentar} nav={nav} />;
+  const { datos, error, cargando, recargar } = useDatos(() => api('/portada'));
   if (error) return <ErrorConexion error={error} recargar={recargar} nav={nav} />;
   if (!datos) return <Cargando />;
   const { destacado, filas } = datos;
   const abrir = (t) => nav.ir('ficha', { id: t.id });
-  const { nombre, unidad, marca } = CATEGORIAS[tipo];
-  const series = tipo === 'serie' || tipo === 'docuserie';
-  const nada = unidad;
 
   return (
     <View style={{ flex: 1 }}>
-    <ScrollView refreshControl={<RefreshControl refreshing={cargando} onRefresh={recargar} tintColor={c.acento} />}>
-      {destacado ? (
-        <View style={{ height: Math.min(height * 0.62, 560), justifyContent: 'flex-end' }}>
-          <Image source={{ uri: destacado.fondo }} style={StyleSheet.absoluteFill} />
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(11,11,15,0.35)' }]} />
-          <View style={e.degradado} />
-          <View style={{ padding: 16, paddingTop: ins.top + 16 }}>
-            <Text style={e.marca}>MorvehTV{marca ? ` · ${marca}` : ''}</Text>
-            <Text style={[e.heroTitulo, { fontSize: width > 600 ? 48 : 34 }]}>{destacado.titulo}</Text>
-            <Text style={e.heroTexto} numberOfLines={3}>{destacado.sinopsis}</Text>
-            <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
-              {destacado.disponible && <Boton texto="▶  Reproducir" onPress={() => nav.ir('ficha', { id: destacado.id, reproducir: true })} />}
-              <Boton texto="Más información" tipo="secundario" onPress={() => abrir(destacado)} />
+      <ScrollView refreshControl={<RefreshControl refreshing={cargando} onRefresh={recargar} tintColor={c.acento} />}>
+        {destacado ? (
+          <View style={{ height: Math.min(height * 0.62, 560), justifyContent: 'flex-end' }}>
+            <Image source={{ uri: destacado.fondo }} style={StyleSheet.absoluteFill} />
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(11,11,15,0.35)' }]} />
+            <View style={e.degradado} />
+            <View style={{ padding: 16, paddingTop: ins.top + 16 }}>
+              <Text style={e.marca}>MorvehTV</Text>
+              <Text style={[e.heroTitulo, { fontSize: width > 600 ? 48 : 34 }]}>{destacado.titulo}</Text>
+              <Text style={e.heroTexto} numberOfLines={3}>{destacado.sinopsis}</Text>
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
+                {destacado.disponible && <Boton texto="▶  Reproducir" onPress={() => nav.ir('ficha', { id: destacado.id, reproducir: true })} />}
+                <Boton texto="Más información" tipo="secundario" onPress={() => abrir(destacado)} />
+              </View>
             </View>
           </View>
+        ) : (
+          <Text style={[e.h1, { paddingHorizontal: 16, paddingTop: ins.top + 16 }]}>MorvehTV</Text>
+        )}
+        <View style={{ paddingTop: 20, paddingBottom: 30 }}>
+          {filas.length
+            ? filas.map((f) => <Fila key={f.id} titulo={f.titulo} items={f.items} onPress={abrir} onVerTodo={() => nav.ir('categoria', { tipo: f.id })} />)
+            : <Vacio titulo="Todavía no hay nada" texto="En cuanto se añada contenido aparecerá aquí." />}
         </View>
-      ) : (
-        <Text style={[e.h1, { paddingHorizontal: 16, paddingTop: ins.top + 16 }]}>{nombre}</Text>
-      )}
-      <View style={{ paddingTop: 20, paddingBottom: 30 }}>
-        <SelectorPlataformas
-          plataformas={plat.lista}
-          elegidas={plat.elegidas}
-          onCambiar={plat.cambiar}
-          titulo={series ? 'Cadenas originales' : 'Mis plataformas'}
-          ayuda={series ? `Dónde se emitió originalmente cada ${tipo === 'serie' ? 'serie' : 'docuserie'}, no dónde puedes verla ahora.` : null}
-        />
-        {filas.length
-          ? filas.map((f) => <Fila key={f.id} titulo={f.titulo} color={f.color} items={f.items} onPress={abrir} />)
-          : <Vacio
-              titulo={plat.elegidas.length ? `Sin ${nada}` : 'Elige una plataforma'}
-              texto={plat.elegidas.length ? `Todavía no hay ${nada} en las plataformas elegidas.` : 'Marca arriba las plataformas que quieres ver.'}
-            />}
-      </View>
-    </ScrollView>
-    <BotonCuenta nav={nav} style={{ position: 'absolute', top: ins.top + 10, right: 14 }} />
+      </ScrollView>
+      <BotonCuenta nav={nav} style={{ position: 'absolute', top: ins.top + 10, right: 14 }} />
     </View>
   );
 }
 
-export const Inicio = (props) => <Portada {...props} tipo="pelicula" />;
-export const Series = (props) => <Portada {...props} tipo="serie" />;
-export const Documentales = (props) => <Listado {...props} tipo="documental" />;
-export const Docuseries = (props) => <Listado {...props} tipo="docuserie" />;
-
-// Documentales y docuseries: todos juntos en una rejilla, sin separar por plataforma
-function Listado({ nav, tipo }) {
+// Una categoría: todos sus títulos en rejilla, con buscador. Sirve de pestaña y de pantalla
+// (al pulsar «Ver todo» en Inicio).
+function Categoria({ nav, tipo, atras }) {
   const ins = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const { nombre, unidad } = CATEGORIAS[tipo];
-  const { datos, error, cargando, recargar } = useDatos(async () => {
-    await cargarPlataformas(tipo === 'docuserie' ? 'serie' : 'pelicula'); // colores de las etiquetas
-    return api(`/titulos?categoria=${tipo}`);
-  }, [tipo]);
+  const [q, setQ] = useState('');
+  const { datos, error, cargando, recargar } = useDatos(() => api(`/titulos?categoria=${tipo}`), [tipo]);
   const columnas = Math.max(3, Math.floor(width / 140));
   const ancho = (width - 32 - (columnas - 1) * 10) / columnas;
 
   if (error) return <ErrorConexion error={error} recargar={recargar} nav={nav} />;
   if (!datos) return <Cargando />;
+  const texto = q.trim().toLowerCase();
+  const lista = texto ? datos.filter((t) => t.titulo.toLowerCase().includes(texto)) : datos;
   return (
     <FlatList
-      data={datos}
+      data={lista}
       key={columnas}
       numColumns={columnas}
       keyExtractor={(t) => t.id}
       refreshControl={<RefreshControl refreshing={cargando} onRefresh={recargar} tintColor={c.acento} />}
-      ListHeaderComponent={<Text style={[e.h1, { paddingTop: ins.top + 16, paddingBottom: 16 }]}>{nombre}</Text>}
-      ListEmptyComponent={<Vacio titulo={`Sin ${unidad}`} texto={`Todavía no hay ${unidad} en el catálogo.`} />}
+      ListHeaderComponent={
+        <View style={{ paddingTop: ins.top + 16, paddingBottom: 16, gap: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            {atras && <Enfocable radio={19} onPress={nav.atras} style={e.atrasCuenta}><Text style={{ color: c.texto, fontSize: 22 }}>‹</Text></Enfocable>}
+            <Text style={e.h1}>{nombre}</Text>
+            <Text style={{ color: c.texto3, marginLeft: 'auto' }}>{datos.length}</Text>
+          </View>
+          {datos.length > 6 && (
+            <Entrada value={q} onChangeText={setQ} placeholder={`Buscar en ${nombre.toLowerCase()}`} placeholderTextColor={c.texto3} style={e.entrada} returnKeyType="search" />
+          )}
+        </View>
+      }
+      ListEmptyComponent={<Vacio titulo={texto ? 'Sin resultados' : `Sin ${unidad}`} texto={texto ? 'Prueba con otro título.' : `Todavía no hay ${unidad} en el catálogo.`} />}
       renderItem={({ item }) => <Tarjeta t={item} ancho={ancho} onPress={(t) => nav.ir('ficha', { id: t.id })} />}
       contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 30 }}
       columnWrapperStyle={{ gap: 10, marginBottom: 14 }}
@@ -397,70 +369,12 @@ function Listado({ nav, tipo }) {
   );
 }
 
-// ---------- Películas (búsqueda y filtro por plataforma) ----------
-export function Explorar({ nav }) {
-  const ins = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
-  const plat = usePlataformas();
-  const [q, setQ] = useState('');
-  const [buscado, setBuscado] = useState('');
-  useEffect(() => { const t = setTimeout(() => setBuscado(q.trim()), 350); return () => clearTimeout(t); }, [q]);
+export const Peliculas = (props) => <Categoria {...props} tipo="pelicula" />;
+export const Series = (props) => <Categoria {...props} tipo="serie" />;
+export const Anime = (props) => <Categoria {...props} tipo="anime-pelicula" />;
+// Pantalla que se abre desde «Ver todo»
+export const PantallaCategoria = ({ nav, params }) => <Categoria nav={nav} tipo={params.tipo} atras />;
 
-  const clave = plat.elegidas.join(',');
-  const { datos, error, recargar } = useDatos(async () => {
-    if (!plat.lista) return null;
-    if (!clave) return [];
-    return api(`/titulos?${new URLSearchParams({ categoria: 'pelicula', plataformas: clave, ...(buscado && { q: buscado }) })}`);
-  }, [plat.lista, clave, buscado]);
-  const columnas = Math.max(3, Math.floor(width / 140));
-  const ancho = (width - 32 - (columnas - 1) * 10) / columnas;
-
-  return (
-    <View style={{ flex: 1, paddingTop: ins.top + 10 }}>
-      <View style={{ paddingHorizontal: 16, gap: 12, marginBottom: 12 }}>
-        <Entrada
-          value={q}
-          onChangeText={setQ}
-          placeholder="Buscar películas"
-          placeholderTextColor={c.texto3}
-          style={e.entrada}
-          returnKeyType="search"
-          clearButtonMode="while-editing"
-        />
-        {plat.lista && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-            {plat.lista.map((p) => {
-              const activa = plat.elegidas.includes(p.id);
-              return (
-                <Enfocable radio={999}
-                  key={p.id}
-                  onPress={() => plat.cambiar(activa ? plat.elegidas.filter((x) => x !== p.id) : [...plat.elegidas, p.id])}
-                  style={[e.chip, activa && { backgroundColor: p.color, borderColor: p.color }]}
-                >
-                  <Text style={{ color: activa ? '#fff' : c.texto2, fontWeight: '700', fontSize: 13 }}>{p.nombre}</Text>
-                </Enfocable>
-              );
-            })}
-          </ScrollView>
-        )}
-      </View>
-      {plat.error ? <ErrorConexion error={plat.error} recargar={plat.reintentar} nav={nav} /> : error ? <ErrorConexion error={error} recargar={recargar} nav={nav} /> : !datos ? <Cargando /> : (
-        <FlatList
-          key={columnas}
-          data={datos}
-          numColumns={columnas}
-          keyExtractor={(t) => t.id}
-          columnWrapperStyle={{ gap: 10 }}
-          contentContainerStyle={{ paddingHorizontal: 16, gap: 16, paddingBottom: 30 }}
-          renderItem={({ item }) => <Tarjeta t={item} ancho={ancho} onPress={(t) => nav.ir('ficha', { id: t.id })} />}
-          ListEmptyComponent={<Vacio titulo="Sin resultados" texto={clave ? 'Prueba con otro título o marca más plataformas.' : 'Marca alguna plataforma arriba.'} />}
-        />
-      )}
-    </View>
-  );
-}
-
-// ---------- Mi lista ----------
 function CabeceraMiLista({ nav }) {
   const u = useUsuario();
   return (
@@ -508,7 +422,7 @@ export function Ficha({ nav, params }) {
   const [temporada, setTemporada] = useState(null);
   const [enLista, setEnLista] = useState(false);
   const { datos, error, recargar } = useDatos(async () => {
-    const [t, prog, ids] = await Promise.all([api(`/titulos/${params.id}`), progreso.todo(), miLista.ids(), cargarPlataformas('pelicula'), cargarPlataformas('serie'), cargarPlataformas('documental'), cargarPlataformas('docuserie')]);
+    const [t, prog, ids] = await Promise.all([api(`/titulos/${params.id}`), progreso.todo(), miLista.ids()]);
     setEnLista(ids.includes(params.id));
     return { t, p: prog[params.id] };
   }, [params.id]);
@@ -546,7 +460,6 @@ export function Ficha({ nav, params }) {
         <Text style={e.meta}>
           {[t.valoracion && `★ ${t.valoracion}`, t.anio, t.tipo === 'serie' ? `${t.temporadas?.length ?? 0} temporadas` : t.duracion && `${t.duracion} min`, ...(t.generos ?? []).slice(0, 2)].filter(Boolean).join('  ·  ')}
         </Text>
-        <EtiquetasPlataforma ids={t.plataformas} style={{ marginTop: 8 }} />
         <View style={{ gap: 10, marginVertical: 16 }}>
           {t.disponible ? (
             <Boton

@@ -67,7 +67,8 @@ export async function ficha(tmdbId, tipo) {
     sinopsis: d.overview,
     anio: (d.release_date ?? d.first_air_date ?? '').slice(0, 4),
     duracion: d.runtime ?? d.episode_run_time?.[0] ?? null,
-    generos: (d.genres ?? []).map((g) => g.name),
+    // La animación japonesa se marca como «Anime» (categoría propia en la web y la app)
+    generos: [...(d.original_language === 'ja' && (d.genres ?? []).some((g) => g.id === 16) ? ['Anime'] : []), ...(d.genres ?? []).map((g) => g.name)],
     valoracion: d.vote_average ? Math.round(d.vote_average * 10) / 10 : null,
     poster: img(d.poster_path, 'w500'),
     fondo: img(d.backdrop_path, 'w1280'),

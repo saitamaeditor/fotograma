@@ -10,7 +10,7 @@ import * as telegram from './telegram.js';
 import * as cuentas from './cuentas.js';
 import * as registro from './registro.js';
 import * as hls from './hls.js';
-import { deTipo, deTitulo, limpiar, detectar, carpeta, CATEGORIAS, TIPO_BASE, categoriaDe, esDocumental, carpetaDocumental, conDocumental } from './plataformas.js';
+import { deTipo, deTitulo, limpiar, detectar, carpeta, CATEGORIAS, TIPO_BASE, categoriaDe, esDocumental, carpetaDocumental, conDocumental, esAnime, carpetaAnime, conAnime, NOMBRES_CATEGORIA } from './plataformas.js';
 
 const { PORT = 4000, ADMIN_KEY = '', CORS_ORIGINS = '*' } = process.env;
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'web');
@@ -123,7 +123,24 @@ app.get('/api/inicio', (req, res) => {
   res.json({ destacado, filas });
 });
 
-// Plataformas de una categoría con cuántos títulos tiene cada una
+// Portada: el destacado y una fila por categoría (Películas, Series, Documentales,
+// Docuseries, Películas anime, Series anime), cada una con lo último añadido primero
+app.get('/api/portada', (req, res) => {
+  importador.siHaceFalta();
+  const todos = titulos.todos();
+  const filas = CATEGORIAS.map((id) => ({
+    id,
+    titulo: NOMBRES_CATEGORIA[id],
+    items: todos.filter((t) => categoriaDe(t) === id).map((t) => ({ ...publico(t), categoria: id })),
+  })).filter((f) => f.items.length);
+  const visibles = filas.flatMap((f) => f.items);
+  const elegidos = visibles.filter((t) => t.fondo && titulos.obtener(t.id)?.destacado);
+  const destacado = elegidos[Math.floor(Math.random() * elegidos.length)]
+    ?? visibles.find((t) => t.disponible && t.fondo) ?? visibles.find((t) => t.fondo) ?? null;
+  res.json({ destacado, filas, categorias: CATEGORIAS.map((id) => ({ id, nombre: NOMBRES_CATEGORIA[id] })) });
+});
+
+// (Versiones antiguas de la web y la app) Plataformas de una categoría
 app.get('/api/plataformas', (req, res) => {
   const cat = categoriaPedida(req);
   const vistas = titulos.todos().filter((t) => categoriaDe(t) === cat).map(deTitulo);
@@ -182,7 +199,7 @@ admin.get('/titulos', (req, res) => res.json(titulos.todos().map((t) => ({ ...t,
 admin.get('/resumen', asinc(async (req, res) => {
   const todos = titulos.todos();
   const ahora = Date.now();
-  const porCategoria = { pelicula: 0, serie: 0, documental: 0, docuserie: 0 };
+  const porCategoria = Object.fromEntries(CATEGORIAS.map((k) => [k, 0]));
   for (const t of todos) porCategoria[categoriaDe(t)] = (porCategoria[categoriaDe(t)] ?? 0) + 1;
   const episodios = todos.filter((t) => t.tipo === 'serie').flatMap((t) => (t.temporadas ?? []).flatMap((s) => s.episodios));
   const cuentas_ = usuarios.todos();
@@ -351,6 +368,7 @@ admin.post('/titulos/:id/refrescar', asinc(async (req, res) => {
   if (Array.isArray(t.plataformas)) nueva.plataformas = t.plataformas;
   // Si ya era documental (por su carpeta o a mano), TMDB no se lo quita
   if (esDocumental(t)) nueva.generos = conDocumental(nueva.generos);
+  if (esAnime(t)) nueva.generos = conAnime(nueva.generos);
   if (t.tipo === 'pelicula') nueva.videoKey = t.videoKey;
   else for (const s of nueva.temporadas) for (const e of s.episodios) e.videoKey = buscarVideo(t, s.numero, e.numero) ?? null;
   res.json(titulos.actualizar(t.id, nueva));
@@ -378,6 +396,7 @@ admin.put('/titulos/:id/video', asinc(async (req, res) => {
     // Si ya tiene plataformas elegidas, sumamos la que indique la carpeta del vídeo
     if (key && Array.isArray(t.plataformas)) cambios.plataformas = limpiar([...t.plataformas, ...detectar(carpeta(key), 'pelicula')]);
     if (key && carpetaDocumental(key) && !esDocumental(t)) cambios.generos = conDocumental(t.generos);
+    if (key && carpetaAnime(key) && !esAnime(t)) cambios.generos = conAnime(cambios.generos ?? t.generos);
     const nuevo = key && !t.videoKey;
     res.json(titulos.actualizar(t.id, cambios));
     if (nuevo) telegram.avisar([{ id: t.id }]).catch(() => {});
@@ -401,6 +420,7 @@ admin.put('/titulos/:id/video', asinc(async (req, res) => {
   const cambios = { temporadas };
   if (key && Array.isArray(t.plataformas)) cambios.plataformas = limpiar([...t.plataformas, ...detectar(carpeta(key), 'serie')]);
   if (key && carpetaDocumental(key) && !esDocumental(t)) cambios.generos = conDocumental(t.generos);
+  if (key && carpetaAnime(key) && !esAnime(t)) cambios.generos = conAnime(cambios.generos ?? t.generos);
   res.json(titulos.actualizar(t.id, cambios));
   if (nuevo) telegram.avisar([{ id: t.id, temporada: s.numero, episodio: ep.numero }]).catch(() => {});
 }));

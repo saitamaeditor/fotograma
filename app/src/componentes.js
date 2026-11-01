@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { View, Text, Image, Pressable, TextInput, FlatList, ActivityIndicator, StyleSheet } from 'react-native';
 import { c } from './tema';
-import { infoPlataforma } from './api';
 
 // Pressable que se ilumina al recibir el foco del mando a distancia (Android TV / cruceta).
 // Dibuja un marco blanco encima; con marco={false} el hijo recibe `foco` y se pinta él mismo.
@@ -40,19 +39,6 @@ export function Entrada({ style, onFocus, onBlur, ...props }) {
   );
 }
 
-// Etiquetas de color con las plataformas de una película
-export function EtiquetasPlataforma({ ids = [], style }) {
-  if (!ids.length) return null;
-  return (
-    <View style={[{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }, style]}>
-      {ids.map((id) => {
-        const p = infoPlataforma(id);
-        return <Text key={id} style={[e.etiqueta, { backgroundColor: p.color }]}>{p.nombre}</Text>;
-      })}
-    </View>
-  );
-}
-
 export function Tarjeta({ t, onPress, ancho = 120 }) {
   return (
     <Enfocable marco={false} escala={1.08} onPress={() => onPress(t)} style={({ pressed }) => [{ width: ancho, opacity: pressed ? 0.7 : 1 }]}>
@@ -64,7 +50,6 @@ export function Tarjeta({ t, onPress, ancho = 120 }) {
             ) : (
               <Text style={e.sinPoster}>{t.titulo}</Text>
             )}
-            <EtiquetasPlataforma ids={t.plataformas} style={e.etiquetasTarjeta} />
             {!t.disponible && <Text style={e.insignia}>PRÓXIMAMENTE</Text>}
             {foco && <View pointerEvents="none" style={[StyleSheet.absoluteFill, e.marco, { borderRadius: 10 }]} />}
           </View>
@@ -76,43 +61,14 @@ export function Tarjeta({ t, onPress, ancho = 120 }) {
   );
 }
 
-// Casillas para elegir plataformas, como en la web
-export function SelectorPlataformas({ plataformas, elegidas, onCambiar, titulo = 'Mis plataformas', ayuda }) {
-  const alternar = (id) => onCambiar(elegidas.includes(id) ? elegidas.filter((x) => x !== id) : [...elegidas, id]);
-  const resumen = elegidas.length === plataformas.length ? 'Todas' : elegidas.length ? elegidas.map((id) => infoPlataforma(id).nombre).join(', ') : 'Ninguna';
-  return (
-    <View style={e.selector}>
-      <Text style={e.selectorTitulo}>{titulo}</Text>
-      {ayuda ? <Text style={e.selectorAyuda}>{ayuda}</Text> : null}
-      <Text style={e.selectorResumen}>Mostrando: <Text style={{ color: c.texto, fontWeight: '600' }}>{resumen}</Text></Text>
-      <View style={e.casillas}>
-        {plataformas.map((p) => {
-          const activa = elegidas.includes(p.id);
-          return (
-            <Enfocable
-              key={p.id}
-              onPress={() => alternar(p.id)}
-              style={({ pressed }) => [e.casilla, activa && e.casillaActiva, pressed && { opacity: 0.7 }]}
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: activa }}
-            >
-              <View style={[e.check, activa && e.checkActivo]}>{activa && <Text style={e.checkMarca}>✓</Text>}</View>
-              <Text style={e.casillaTexto} numberOfLines={1}>{p.nombre}</Text>
-            </Enfocable>
-          );
-        })}
-      </View>
-    </View>
-  );
-}
-
-export function Fila({ titulo, items, onPress, color }) {
+export function Fila({ titulo, items, onPress, onVerTodo }) {
   return (
     <View style={{ marginBottom: 26 }}>
       <View style={e.filaCab}>
-        {color && <View style={[e.punto, { backgroundColor: color }]} />}
         <Text style={[e.filaTitulo, { marginBottom: 0, paddingHorizontal: 0 }]}>{titulo}</Text>
-        <Text style={e.filaTotal}>{items.length}</Text>
+        {onVerTodo
+          ? <Enfocable radio={999} escala={1} onPress={onVerTodo} style={{ marginLeft: 'auto', paddingHorizontal: 8, paddingVertical: 4 }}><Text style={e.filaTotal}>{items.length} · Ver todo ›</Text></Enfocable>
+          : <Text style={e.filaTotal}>{items.length}</Text>}
       </View>
       <FlatList
         horizontal

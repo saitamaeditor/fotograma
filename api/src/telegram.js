@@ -2,7 +2,7 @@
 // grupo se configuran desde el panel y se guardan con el catálogo; el token nunca se
 // devuelve entero al navegador.
 import { ajustes, titulos } from './db.js';
-import { PLATAFORMAS, deTitulo, categoriaDe as seccionDe } from './plataformas.js';
+import { categoriaDe as seccionDe } from './plataformas.js';
 
 const WEB = (process.env.PUBLIC_URL ?? 'https://morvehtv.es').replace(/\/$/, '');
 const DOWNLOADER = '4040796'; // código de la app en Downloader (Fire TV / Android TV)
@@ -15,9 +15,11 @@ export const SECCIONES = {
   serie: { nombre: 'Series', tema: '📺 Series', color: 7322096, cabecera: '📺 <b>Nueva serie en MorvehTV</b>' },
   documental: { nombre: 'Documentales', tema: '🎥 Documentales', color: 16766590, cabecera: '🎥 <b>Nuevo documental en MorvehTV</b>' },
   docuserie: { nombre: 'Docuseries', tema: '🎞 Docuseries', color: 9367192, cabecera: '🎞 <b>Nueva docuserie en MorvehTV</b>' },
+  'anime-pelicula': { nombre: 'Películas anime', tema: '🍥 Películas anime', color: 16749490, cabecera: '🍥 <b>Nueva película anime en MorvehTV</b>' },
+  'anime-serie': { nombre: 'Series anime', tema: '🍥 Series anime', color: 13338331, cabecera: '🍥 <b>Nueva serie anime en MorvehTV</b>' },
 };
-// Si una sección no tiene tema propio, usa el de su tipo (documental → películas, docuserie → series)
-const BASE = { documental: 'pelicula', docuserie: 'serie' };
+// Si una sección no tiene tema propio, usa el de su tipo (documental y anime → películas, docuserie y series anime → series)
+const BASE = { documental: 'pelicula', docuserie: 'serie', 'anime-pelicula': 'pelicula', 'anime-serie': 'serie' };
 
 const config = () => ({ activo: true, downloader: DOWNLOADER, ...ajustes.obtener('telegram') });
 
@@ -142,7 +144,6 @@ async function enviar({ foto, texto, boton, seccion }) {
 }
 
 function mensaje(t, episodios) {
-  const plataformas = deTitulo(t).map((id) => PLATAFORMAS.find((p) => p.id === id)?.nombre).filter(Boolean);
   const serie = t.tipo === 'serie';
   const seccion = seccionDe(t);
   let cabecera = SECCIONES[seccion].cabecera;
@@ -159,7 +160,6 @@ function mensaje(t, episodios) {
     cabecera,
     '',
     `<b>${html(t.titulo)}</b>${t.anio ? ` (${html(t.anio)})` : ''}${html(detalle)}`,
-    plataformas.length ? `${serie ? '📡 Cadena' : '📍 Plataforma'}: ${html(plataformas.join(', '))}` : '',
     datos ? html(datos) : '',
     sinopsis ? `\n<i>${html(sinopsis)}</i>` : '',
   ].filter((l) => l !== '').join('\n');

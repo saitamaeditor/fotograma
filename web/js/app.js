@@ -39,11 +39,6 @@ const progreso = {
 // ---------- Plantillas ----------
 // En filas: tarjeta horizontal (imagen de fondo) que se amplía con info al pasar el ratón.
 // En rejillas: cartel vertical.
-// Etiquetas de color con las plataformas de una película o serie
-const etiquetasPlataforma = (t) =>
-  (t.plataformas ?? []).length
-    ? `<span class="plat-etiquetas">${t.plataformas.map((p) => `<span class="plat-etiqueta" style="--plat:${esc(colorPlataforma(p))}">${esc(nombrePlataforma(p))}</span>`).join('')}</span>`
-    : '';
 
 function tarjeta(t, { vertical = false } = {}) {
   const p = progreso.de(t.id);
@@ -55,7 +50,6 @@ function tarjeta(t, { vertical = false } = {}) {
         ${imagen ? `<img src="${esc(imagen)}" alt="" loading="lazy" />` : ''}
         ${!vertical ? `<span class="tarjeta-nombre">${esc(t.titulo)}</span>` : ''}
         ${!imagen ? `<div class="tarjeta-sin">${esc(t.titulo)}</div>` : ''}
-        ${etiquetasPlataforma(t)}
         ${t.disponible ? '' : '<span class="insignia pronto">Próximamente</span>'}
         ${pct > 1 ? `<div class="progreso"><span style="width:${pct}%"></span></div>` : ''}
       </div>
@@ -78,23 +72,25 @@ function tarjeta(t, { vertical = false } = {}) {
     </a>`;
 }
 
-// Texto «1 película», «3 series»…
-// Las cuatro categorías: documentales y docuseries son títulos con el género «Documental»
+// Las seis categorías: documentales y docuseries llevan el género «Documental» y el anime
+// el género «Anime». `ruta` es su dirección en la web (#/peliculas…).
 const CATEGORIAS = {
-  pelicula: { nombre: 'Películas', unidad: ['película', 'películas'], clave: 'fg-plataformas' },
-  serie: { nombre: 'Series', unidad: ['serie', 'series'], clave: 'fg-plataformas-series' },
-  documental: { nombre: 'Documentales', unidad: ['documental', 'documentales'], clave: 'fg-plataformas-documentales' },
-  docuserie: { nombre: 'Docuseries', unidad: ['docuserie', 'docuseries'], clave: 'fg-plataformas-docuseries' },
+  pelicula: { nombre: 'Películas', unidad: ['película', 'películas'], ruta: 'peliculas' },
+  serie: { nombre: 'Series', unidad: ['serie', 'series'], ruta: 'series' },
+  documental: { nombre: 'Documentales', unidad: ['documental', 'documentales'], ruta: 'documentales' },
+  docuserie: { nombre: 'Docuseries', unidad: ['docuserie', 'docuseries'], ruta: 'docuseries' },
+  'anime-pelicula': { nombre: 'Películas anime', unidad: ['película anime', 'películas anime'], ruta: 'anime' },
+  'anime-serie': { nombre: 'Series anime', unidad: ['serie anime', 'series anime'], ruta: 'series-anime' },
 };
-const deSeries = (tipo) => tipo === 'serie' || tipo === 'docuserie';
+// Texto «1 película», «3 series»…
 const cuantos = (n, tipo) => `${n} ${CATEGORIAS[tipo].unidad[n === 1 ? 0 : 1]}`;
 
-function fila(titulo, items, color, tipo = 'pelicula') {
+function fila(titulo, items, tipo = 'pelicula') {
   return `
     <section class="fila">
       <div class="fila-cab">
-        <h2>${color ? `<span class="punto" style="background:${esc(color)}"></span>` : ''}${esc(titulo)}</h2>
-        <span class="fila-total">${cuantos(items.length, tipo)}</span>
+        <h2>${esc(titulo)}</h2>
+        <a class="fila-total" href="#/${CATEGORIAS[tipo].ruta}">${cuantos(items.length, tipo)} · Ver todo ›</a>
       </div>
       <div class="fila-pista">
         <button class="flecha izq" aria-label="Anterior">${iconos.izq}</button>
@@ -112,7 +108,6 @@ function meta(t) {
       ${t.duracion && t.tipo === 'pelicula' ? `<span>${Math.floor(t.duracion / 60)} h ${t.duracion % 60} min</span>` : ''}
       ${t.temporadas?.length ? `<span>${t.temporadas.length} temporada${t.temporadas.length > 1 ? 's' : ''}</span>` : ''}
       <span class="etiqueta">${t.tipo === 'serie' ? 'Serie' : 'Película'}</span>
-      ${etiquetasPlataforma(t).replace('plat-etiquetas', 'plat-etiquetas en-linea')}
       ${(t.generos ?? []).slice(0, 3).map((g) => `<span>${esc(g)}</span>`).join('<span>·</span>')}
     </div>`;
 }
@@ -128,65 +123,11 @@ function activarCarruseles() {
   }
 }
 
-// ---------- Plataformas elegidas por el espectador ----------
-// Películas y series tienen su propia lista: en series son las cadenas originales.
-const plataformas = { pelicula: [], serie: [], documental: [], docuserie: [] }; // [{ id, nombre, color, total }] desde la API
-const todasPlataformas = () => Object.values(plataformas).flat();
-const nombrePlataforma = (id) => todasPlataformas().find((p) => p.id === id)?.nombre ?? id;
-const colorPlataforma = (id) => todasPlataformas().find((p) => p.id === id)?.color ?? '#555';
-const claveElegidas = (tipo) => CATEGORIAS[tipo].clave;
-// Sin elección guardada se ven todas
-const elegidas = (tipo) => leer(claveElegidas(tipo), null) ?? plataformas[tipo].map((p) => p.id);
-
-async function cargarPlataformas() {
-  if (plataformas.pelicula.length) return;
-  const listas = await Promise.all(Object.keys(CATEGORIAS).map((c) => api(`/plataformas?tipo=${c}`)));
-  Object.keys(CATEGORIAS).forEach((c, i) => { plataformas[c] = listas[i]; });
-}
-
-function selectorPlataformas(tipo) {
-  const lista = plataformas[tipo];
-  const sel = elegidas(tipo);
-  const resumen = sel.length === lista.length ? 'Todas' : sel.length ? sel.map(nombrePlataforma).join(', ') : 'Ninguna';
-  const [titulo, ayuda] = deSeries(tipo)
-    ? ['Cadenas originales', `Indica dónde se emitió originalmente cada ${CATEGORIAS[tipo].unidad[0]}, no dónde puedes verla ahora.`]
-    : ['Mis plataformas', ''];
-  return `
-    <section class="plataformas" aria-labelledby="plat-titulo">
-      <div class="plataformas-cab">
-        <h2 id="plat-titulo">${titulo}</h2>
-        <span class="plataformas-resumen">Mostrando: <b>${esc(resumen)}</b></span>
-      </div>
-      ${ayuda ? `<p class="plataformas-ayuda">${ayuda}</p>` : ''}
-      <div class="plataformas-rejilla">
-        ${lista.map((p) => `
-          <label class="plataforma ${sel.includes(p.id) ? 'activa' : ''}" style="--plat:${esc(p.color)}">
-            <input type="checkbox" value="${p.id}" ${sel.includes(p.id) ? 'checked' : ''} />
-            <span class="plataforma-nombre">${esc(p.nombre)}</span>
-            <span class="plataforma-total">${cuantos(p.total, tipo)}</span>
-          </label>`).join('')}
-      </div>
-    </section>`;
-}
-
-// Al marcar o desmarcar una plataforma se guarda la elección y se repinta la vista
-function activarSelector(tipo, repintar) {
-  vista.querySelector('.plataformas-rejilla')?.addEventListener('change', () => {
-    const marcadas = [...vista.querySelectorAll('.plataformas-rejilla input:checked')].map((i) => i.value);
-    escribir(claveElegidas(tipo), marcadas);
-    repintar();
-  });
-}
-
 // ---------- Vistas ----------
-// Portada de películas (Inicio) o de series: destacado, selector y una fila por plataforma
-async function verPortada(tipo) {
-  await cargarPlataformas();
-  const sel = elegidas(tipo);
-  const { destacado, filas } = sel.length ? await api(`/inicio?tipo=${tipo}&plataformas=${sel.join(',')}`) : { destacado: null, filas: [] };
+// Inicio: el destacado y una fila por categoría con lo último de cada una
+async function verInicio() {
+  const { destacado, filas } = await api('/portada');
   const y = window.scrollY;
-  const nada = CATEGORIAS[tipo].unidad[1];
-
   vista.innerHTML = `
     ${destacado ? `
       <section class="hero">
@@ -200,52 +141,32 @@ async function verPortada(tipo) {
             <a class="btn btn-secundario" href="#/titulo/${destacado.id}">${iconos.info} Más información</a>
           </div>
         </div>
-      </section>` : `<div class="pagina-cab sin-destacado"><h1>${CATEGORIAS[tipo].nombre}</h1></div>`}
+      </section>` : '<div class="pagina-cab sin-destacado"><h1>MorvehTV</h1></div>'}
     <div class="filas ${destacado ? '' : 'sin-destacado-filas'}">
-      ${selectorPlataformas(tipo)}
       ${filas.length
-        ? filas.map((f) => fila(f.titulo, f.items, f.color, tipo)).join('')
-        : vacio(sel.length ? `Sin ${nada}` : 'Elige una plataforma', sel.length ? `Todavía no hay ${nada} en las plataformas elegidas.` : 'Marca arriba las plataformas que quieres ver.')}
+        ? filas.map((f) => fila(f.titulo, f.items, f.id)).join('')
+        : vacio('Todavía no hay nada', 'En cuanto se añada contenido aparecerá aquí.')}
     </div>`;
   activarCarruseles();
-  activarSelector(tipo, async () => { await verPortada(tipo); window.scrollTo(0, y); });
+  window.scrollTo(0, y);
 }
 
-const verInicio = () => verPortada('pelicula');
-const verSeries = () => verPortada('serie');
-const verDocumentales = () => verListado('documental');
-const verDocuseries = () => verListado('docuserie');
-
-// Documentales y docuseries: todos juntos, sin separar por plataforma
-async function verListado(tipo) {
-  await cargarPlataformas();
+// Página de una categoría: todos sus títulos en una rejilla
+async function verCategoria(tipo) {
   const lista = await api(`/titulos?categoria=${tipo}`);
+  const c = CATEGORIAS[tipo];
   vista.innerHTML = `
     <div class="pagina">
-      <div class="pagina-cab"><h1>${CATEGORIAS[tipo].nombre}</h1><span class="texto-2">${cuantos(lista.length, tipo)}</span></div>
+      <div class="pagina-cab"><h1>${c.nombre}</h1><span class="texto-2">${cuantos(lista.length, tipo)}</span></div>
       ${lista.length
         ? `<div class="rejilla">${lista.map((t) => tarjeta(t, { vertical: true })).join('')}</div>`
-        : vacio(`Sin ${CATEGORIAS[tipo].unidad[1]}`, `Todavía no hay ${CATEGORIAS[tipo].unidad[1]} en el catálogo.`)}
+        : vacio(`Sin ${c.unidad[1]}`, `Todavía no hay ${c.unidad[1]} en el catálogo.`)}
     </div>`;
-}
-
-async function verCatalogo() {
-  await cargarPlataformas();
-  const sel = elegidas('pelicula');
-  const lista = sel.length ? await api(`/titulos?categoria=pelicula&plataformas=${sel.join(',')}`) : [];
-  vista.innerHTML = `
-    <div class="pagina">
-      <div class="pagina-cab"><h1>Películas</h1></div>
-      ${selectorPlataformas('pelicula')}
-      ${lista.length ? `<div class="rejilla">${lista.map((t) => tarjeta(t, { vertical: true })).join('')}</div>` : vacio('Nada por aquí', 'No hay películas en las plataformas elegidas.')}
-    </div>`;
-  activarSelector('pelicula', verCatalogo);
 }
 
 async function verBusqueda() {
   const q = new URLSearchParams(location.hash.split('?')[1]).get('q') ?? '';
   document.querySelector('#buscador input').value = q;
-  await cargarPlataformas();
   const lista = q ? await api(`/titulos?q=${encodeURIComponent(q)}`) : [];
   vista.innerHTML = `
     <div class="pagina">
@@ -524,7 +445,6 @@ function siguienteEpisodio(t, temporada, episodio) {
 }
 
 async function verTitulo(id) {
-  await cargarPlataformas();
   const t = await api(`/titulos/${id}`);
   document.title = `${t.titulo} · MorvehTV`;
   const p = progreso.de(id);
@@ -714,10 +634,12 @@ async function verReproductor(id) {
 // ---------- Enrutador ----------
 const rutas = [
   [/^#?\/?$/, verInicio, 'inicio'],
-  [/^#\/peliculas/, verCatalogo, 'peliculas'],
-  [/^#\/series/, verSeries, 'series'],
-  [/^#\/documentales/, verDocumentales, 'documentales'],
-  [/^#\/docuseries/, verDocuseries, 'docuseries'],
+  [/^#\/peliculas/, () => verCategoria('pelicula'), 'peliculas'],
+  [/^#\/series-anime/, () => verCategoria('anime-serie'), 'series-anime'],
+  [/^#\/series/, () => verCategoria('serie'), 'series'],
+  [/^#\/documentales/, () => verCategoria('documental'), 'documentales'],
+  [/^#\/docuseries/, () => verCategoria('docuserie'), 'docuseries'],
+  [/^#\/anime/, () => verCategoria('anime-pelicula'), 'anime'],
   [/^#\/buscar/, verBusqueda, 'buscar'],
   [/^#\/mi-lista/, verMiLista, 'mi-lista'],
   [/^#\/cuenta/, verCuenta, 'cuenta'],
@@ -750,8 +672,7 @@ document.getElementById('nav-movil').innerHTML = `
   <a href="#/">${iconos.casa}Inicio</a>
   <a href="#/peliculas">${iconos.peli}Películas</a>
   <a href="#/series">${iconos.tv}Series</a>
-  <a href="#/documentales">${iconos.peli}Docs</a>
-  <a href="#/docuseries">${iconos.tv}Docuseries</a>
+  <a href="#/anime">${iconos.peli}Anime</a>
   <a href="#/mi-lista">${iconos.lista}Mi lista</a>`;
 
 document.getElementById('buscador').addEventListener('submit', (ev) => {
@@ -783,7 +704,7 @@ cuenta.alCambiar(pintarBotonCuenta);
 // Cuando llegan cambios de otro dispositivo (lista o progreso), se repinta la vista
 cuenta.alLlegarDatos(() => {
   const nombre = (rutas.find(([re]) => re.test(location.hash || '#/')) ?? rutas[0])[2];
-  if (['inicio', 'peliculas', 'series', 'mi-lista', 'documentales', 'docuseries'].includes(nombre)) {
+  if (['inicio', 'peliculas', 'series', 'mi-lista', 'documentales', 'docuseries', 'anime', 'series-anime'].includes(nombre)) {
     const y = window.scrollY;
     enrutar().then(() => window.scrollTo(0, y));
   }
@@ -799,7 +720,7 @@ cuenta.refrescar().then((ok) => {
 // sin recargar ni mover el scroll y avisa de lo que ha llegado. En la ficha y el
 // reproductor no se toca nada para no interrumpir.
 const CADA_MS = 30_000;
-const REPINTABLES = new Set(['inicio', 'peliculas', 'series', 'buscar', 'mi-lista']);
+const REPINTABLES = new Set(['inicio', 'peliculas', 'series', 'documentales', 'docuseries', 'anime', 'series-anime', 'buscar', 'mi-lista']);
 let version = null;
 let conocidos = null;
 
@@ -812,7 +733,6 @@ async function comprobarNovedades() {
     if (version === null) { version = n.version; return; }
     if (n.version === version) return;
     version = n.version;
-    plataformas.pelicula = []; // recarga los contadores de cada plataforma
     if (nuevos.length) avisar(`Nuevo en MorvehTV: ${nuevos.map((t) => t.titulo).join(', ')}`);
     const hash = location.hash || '#/';
     const [patron, fn, nombre] = rutas.find(([re]) => re.test(hash)) ?? rutas[0];
