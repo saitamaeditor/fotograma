@@ -249,7 +249,7 @@ admin.put('/titulos/:id/video', asinc(async (req, res) => {
 }));
 
 // Avisos de contenido nuevo en un grupo de Telegram
-admin.get('/telegram', (req, res) => res.json(telegram.estado()));
+admin.get('/telegram', (req, res) => res.json({ ...telegram.estado(), secciones: telegram.SECCIONES }));
 admin.put('/telegram', asinc(async (req, res) => res.json(await telegram.configurar(req.body ?? {}))));
 admin.get('/telegram/grupos', asinc(async (req, res) => res.json(await telegram.buscarGrupos())));
 admin.get('/telegram/temas', asinc(async (req, res) => res.json(await telegram.buscarTemas())));

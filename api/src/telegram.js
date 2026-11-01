@@ -6,7 +6,20 @@ import { PLATAFORMAS, deTitulo } from './plataformas.js';
 
 const WEB = (process.env.PUBLIC_URL ?? 'https://morvehtv.es').replace(/\/$/, '');
 const DOWNLOADER = '4040796'; // código de la app en Downloader (Fire TV / Android TV)
-const historial = []; // últimos avisos enviados (o fallidos), para verlos en el panel
+const historial = [];
+
+// Secciones de los avisos; en grupos con temas cada una puede ir a su tema.
+// Los documentales y docuseries son películas y series con el género «Documental».
+export const SECCIONES = {
+  pelicula: { nombre: 'Películas', tema: '🎬 Películas', color: 16478047, cabecera: '🎬 <b>Nueva película en MorvehTV</b>' },
+  serie: { nombre: 'Series', tema: '📺 Series', color: 7322096, cabecera: '📺 <b>Nueva serie en MorvehTV</b>' },
+  documental: { nombre: 'Documentales', tema: '🎥 Documentales', color: 16766590, cabecera: '🎥 <b>Nuevo documental en MorvehTV</b>' },
+  docuserie: { nombre: 'Docuseries', tema: '🎞 Docuseries', color: 9367192, cabecera: '🎞 <b>Nueva docuserie en MorvehTV</b>' },
+};
+const esDocumental = (t) => (t.generos ?? []).some((g) => /documental|documentary/i.test(g));
+const seccionDe = (t) => (esDocumental(t) ? (t.tipo === 'serie' ? 'docuserie' : 'documental') : t.tipo);
+// Si una sección no tiene tema propio, usa el de su tipo (documental → películas, docuserie → series)
+const BASE = { documental: 'pelicula', docuserie: 'serie' }; // últimos avisos enviados (o fallidos), para verlos en el panel
 
 const config = () => ({ activo: true, downloader: DOWNLOADER, ...ajustes.obtener('telegram') });
 
@@ -32,7 +45,7 @@ export function estado() {
     chatNombre: chatNombre ?? null,
     esForo: Boolean(esForo),
     downloader: downloader || null,
-    temas: { pelicula: temas?.pelicula ?? null, serie: temas?.serie ?? null },
+    temas: Object.fromEntries(Object.keys(SECCIONES).map((s) => [s, temas?.[s] ?? null])),
     historial,
   };
 }
@@ -89,25 +102,27 @@ export async function buscarTemas() {
   return [...vistos.values()];
 }
 
-// Crea los temas «🎬 Películas» y «📺 Series» (el bot debe ser admin con permiso de gestionar temas)
+// Crea un tema por cada sección que aún no tenga uno (el bot debe ser admin con permiso
+// de gestionar temas): 🎬 Películas, 📺 Series, 🎥 Documentales y 🎞 Docuseries
 export async function crearTemas() {
-  const { token, chatId } = config();
+  const { token, chatId, temas: actuales } = config();
   if (!token || !chatId) throw new Error('Primero elige el grupo');
-  const crear = async (name, icon_color) => {
-    const t = await llamar(token, 'createForumTopic', { chat_id: chatId, name, icon_color });
-    return { id: String(t.message_thread_id), nombre: t.name };
-  };
-  const temas = { pelicula: await crear('🎬 Películas', 16478047), serie: await crear('📺 Series', 7322096) };
+  const temas = {};
+  for (const [clave, s] of Object.entries(SECCIONES)) {
+    if (actuales?.[clave]) continue;
+    const t = await llamar(token, 'createForumTopic', { chat_id: chatId, name: s.tema, icon_color: s.color });
+    temas[clave] = { id: String(t.message_thread_id), nombre: t.name };
+  }
   await configurar({ temas, esForo: true });
   return estado();
 }
 
 const html = (t) => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-async function enviar({ foto, texto, boton, tipo }) {
+async function enviar({ foto, texto, boton, seccion }) {
   const { token, chatId, temas, downloader } = config();
-  // En grupos con temas, las películas y las series van cada una a su tema
-  const tema = temas?.[tipo]?.id;
+  // En grupos con temas, cada sección va a su tema
+  const tema = (temas?.[seccion] ?? temas?.[BASE[seccion]])?.id;
   const extra = {
     // Botones: ver en la web y, debajo, la app con su código de Downloader
     ...((boton || downloader) && { reply_markup: { inline_keyboard: [
@@ -131,7 +146,8 @@ async function enviar({ foto, texto, boton, tipo }) {
 function mensaje(t, episodios) {
   const plataformas = deTitulo(t).map((id) => PLATAFORMAS.find((p) => p.id === id)?.nombre).filter(Boolean);
   const serie = t.tipo === 'serie';
-  let cabecera = serie ? '📺 <b>Nueva serie en MorvehTV</b>' : '🎬 <b>Nueva película en MorvehTV</b>';
+  const seccion = seccionDe(t);
+  let cabecera = SECCIONES[seccion].cabecera;
   let detalle = '';
   if (serie && episodios.length) {
     const lista = episodios.map((e) => `T${e.temporada}:E${e.episodio}`);
@@ -149,7 +165,7 @@ function mensaje(t, episodios) {
     datos ? html(datos) : '',
     sinopsis ? `\n<i>${html(sinopsis)}</i>` : '',
   ].filter((l) => l !== '').join('\n');
-  return { foto: t.poster, texto, tipo: t.tipo, boton: { texto: '▶ Ver en MorvehTV', url: `${WEB}/#/titulo/${t.id}` } };
+  return { foto: t.poster, texto, seccion, boton: { texto: '▶ Ver en MorvehTV', url: `${WEB}/#/titulo/${t.id}` } };
 }
 
 // `novedades`: [{ id, temporada?, episodio? }]. Los episodios de una misma serie van en un solo mensaje.
@@ -176,15 +192,17 @@ export async function avisar(novedades) {
   }
 }
 
-// Un mensaje de prueba por sección (películas y series), cada uno en su tema si lo hay
+// Un mensaje de prueba por cada tema distinto (sin repetir si varias secciones comparten tema)
 export async function probar() {
   const { token, chatId, temas } = config();
   if (!token || !chatId) throw new Error('Falta el token del bot o el grupo');
-  for (const tipo of ['pelicula', 'serie']) {
-    if (tipo === 'serie' && temas?.serie?.id === temas?.pelicula?.id) continue;
-    const ejemplo = titulos.todos().find((t) => t.tipo === tipo);
-    const seccion = tipo === 'serie' ? 'series' : 'películas';
-    const m = ejemplo ? mensaje(ejemplo, []) : { texto: `Aquí llegarán los avisos de ${seccion} nuevas.` };
-    await enviar({ ...m, tipo, texto: `🧪 <b>Prueba de avisos de ${seccion}</b>\n\n${m.texto}` });
+  const enviados = new Set();
+  for (const [clave, s] of Object.entries(SECCIONES)) {
+    const tema = (temas?.[clave] ?? temas?.[BASE[clave]])?.id ?? 'general';
+    if (enviados.has(tema)) continue;
+    enviados.add(tema);
+    const ejemplo = titulos.todos().find((t) => seccionDe(t) === clave);
+    const m = ejemplo ? mensaje(ejemplo, []) : { texto: `Aquí llegarán los avisos de ${s.nombre.toLowerCase()}.` };
+    await enviar({ ...m, seccion: clave, texto: `🧪 <b>Prueba de avisos de ${s.nombre.toLowerCase()}</b>\n\n${m.texto}` });
   }
 }
