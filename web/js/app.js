@@ -229,7 +229,7 @@ function siguienteEpisodio(t, temporada, episodio) {
 async function verTitulo(id) {
   await cargarPlataformas();
   const t = await api(`/titulos/${id}`);
-  document.title = `${t.titulo} · Fotograma`;
+  document.title = `${t.titulo} · MorvehTV`;
   const p = progreso.de(id);
   let botonVer = '';
   if (t.tipo === 'pelicula' && t.disponible) {
@@ -381,7 +381,7 @@ async function enrutar() {
   cabecera.hidden = reproduciendo;
   document.querySelector('.pie').hidden = reproduciendo;
   document.getElementById('nav-movil').hidden = reproduciendo;
-  document.title = 'Fotograma';
+  document.title = 'MorvehTV';
   for (const a of document.querySelectorAll('#nav a, #nav-movil a')) {
     a.classList.toggle('activo', a.getAttribute('href') === `#/${nombre === 'inicio' ? '' : nombre}`);
   }

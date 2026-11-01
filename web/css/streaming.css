@@ -6,7 +6,7 @@ h1, h2, h3 { font-weight: 800; letter-spacing: -0.02em; }
 /* ---------- Cabecera y logotipo ---------- */
 .cabecera { padding: 14px var(--lado); background: linear-gradient(to bottom, rgba(0, 0, 0, 0.75) 10%, transparent); }
 .cabecera.solida { background: var(--fondo); backdrop-filter: none; border-bottom: 0; }
-.marca { font-family: 'Bebas Neue', var(--titulos); font-weight: 400; font-size: 34px; letter-spacing: 0.04em; color: var(--acento); line-height: 1; }
+.marca { font-family: 'Bricolage Grotesque', var(--titulos); font-weight: 800; font-size: 30px; letter-spacing: -0.02em; color: var(--acento); line-height: 1; }
 .marca-icono { display: none; }
 .nav { gap: 22px; font-size: 14px; }
 .nav a { color: #e5e5e5; }
@@ -118,7 +118,7 @@ h1, h2, h3 { font-weight: 800; letter-spacing: -0.02em; }
 
 /* ---------- Móvil ---------- */
 @media (max-width: 760px) {
-  .marca { font-size: 28px; }
+  .marca { font-size: 24px; }
   .marca span:not(.marca-icono) { display: inline; }
   .hero { min-height: 72vh; padding-bottom: 90px; }
   .hero-contenido { text-align: center; margin: 0 auto; }
