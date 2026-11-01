@@ -66,6 +66,17 @@ app.get('/api/estado', (req, res) => {
   res.json({ ok: true, e2: e2.configurado, tmdb: tmdb.configurado, titulos: titulos.todos().length });
 });
 
+// La web lo consulta cada poco: si cambia `version`, repinta la vista con lo nuevo.
+// `recientes` son los últimos añadidos, para avisar al espectador de qué ha llegado.
+app.get('/api/novedades', (req, res) => {
+  importador.siHaceFalta();
+  const lista = titulos.todos();
+  const ultima = lista.reduce((max, t) => Math.max(max, Date.parse(t.actualizado ?? t.creado ?? 0) || 0), 0);
+  const recientes = [...lista].sort((a, b) => (b.creado ?? '').localeCompare(a.creado ?? '')).slice(0, 10)
+    .map((t) => ({ id: t.id, titulo: t.titulo, tipo: t.tipo }));
+  res.set('Cache-Control', 'no-store').json({ version: `${lista.length}-${ultima}`, recientes });
+});
+
 app.get('/api/titulos', (req, res) => {
   importador.siHaceFalta();
   const { tipo, genero, q, disponibles, plataformas } = req.query;

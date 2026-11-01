@@ -433,3 +433,38 @@ document.querySelector('#buscador input').addEventListener('input', (ev) => {
 window.addEventListener('scroll', () => cabecera.classList.toggle('solida', window.scrollY > 40), { passive: true });
 window.addEventListener('hashchange', enrutar);
 enrutar();
+
+// ---------- Contenido nuevo en tiempo real ----------
+// Cada 30 s pregunta a la API si el catálogo ha cambiado. Si sí, repinta la vista actual
+// sin recargar ni mover el scroll y avisa de lo que ha llegado. En la ficha y el
+// reproductor no se toca nada para no interrumpir.
+const CADA_MS = 30_000;
+const REPINTABLES = new Set(['inicio', 'peliculas', 'series', 'buscar', 'mi-lista']);
+let version = null;
+let conocidos = null;
+
+async function comprobarNovedades() {
+  if (document.hidden) return;
+  try {
+    const n = await api('/novedades');
+    const nuevos = conocidos ? n.recientes.filter((t) => !conocidos.has(t.id)) : [];
+    conocidos = new Set([...(conocidos ?? []), ...n.recientes.map((t) => t.id)]);
+    if (version === null) { version = n.version; return; }
+    if (n.version === version) return;
+    version = n.version;
+    plataformas.pelicula = []; // recarga los contadores de cada plataforma
+    if (nuevos.length) avisar(`Nuevo en MorvehTV: ${nuevos.map((t) => t.titulo).join(', ')}`);
+    const hash = location.hash || '#/';
+    const [patron, fn, nombre] = rutas.find(([re]) => re.test(hash)) ?? rutas[0];
+    if (!REPINTABLES.has(nombre)) return;
+    const y = window.scrollY;
+    await fn(hash.match(patron)?.[1]);
+    window.scrollTo(0, y);
+  } catch {
+    // Sin conexión o servidor dormido: se reintenta en la próxima vuelta
+  }
+}
+
+comprobarNovedades();
+setInterval(comprobarNovedades, CADA_MS);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) comprobarNovedades(); });

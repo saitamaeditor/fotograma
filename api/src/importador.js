@@ -14,7 +14,7 @@ import { detectar, carpeta } from './plataformas.js';
 
 // Por defecto solo escanea el servidor publicado en Render (que define RENDER); en tu PC está
 // apagado para que dos servidores no den de alta lo mismo a la vez
-const MINUTOS = Number(process.env.E2_ESCANEO_MINUTOS ?? (process.env.RENDER ? 10 : 0));
+const MINUTOS = Number(process.env.E2_ESCANEO_MINUTOS ?? (process.env.RENDER ? 2 : 0));
 
 let ultimo = { fecha: null, nuevos: [], errores: [] };
 let enCurso = null;
