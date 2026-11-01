@@ -2,7 +2,7 @@
   "expo": {
     "name": "MorvehTV",
     "slug": "fotograma",
-    "version": "1.7.0",
+    "version": "1.8.0",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -13,7 +13,7 @@
     },
     "android": {
       "package": "com.fotograma.app",
-      "versionCode": 8,
+      "versionCode": 9,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0b0206"
@@ -44,7 +44,9 @@
           "imageWidth": 260,
           "resizeMode": "contain"
         }
-      ]
+      ],
+      "expo-audio",
+      "expo-asset"
     ],
     "extra": {
       "apiUrl": "https://morvehtv.es",
