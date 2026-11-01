@@ -275,7 +275,8 @@ function ErrorConexion({ error, recargar, nav }) {
 }
 
 // ---------- Inicio (películas) y Series ----------
-// Las seis categorías. Documentales y docuseries llevan el género «Documental»; el anime, «Anime».
+// Las categorías. Documentales y docuseries llevan el género «Documental»; el anime, «Anime»;
+// los programas, «Programa de TV»; las novelas turcas, «Novela turca».
 const CATEGORIAS = {
   pelicula: { nombre: 'Películas', unidad: 'películas' },
   serie: { nombre: 'Series', unidad: 'series' },
@@ -283,6 +284,8 @@ const CATEGORIAS = {
   docuserie: { nombre: 'Docuseries', unidad: 'docuseries' },
   'anime-pelicula': { nombre: 'Películas anime', unidad: 'películas anime' },
   'anime-serie': { nombre: 'Series anime', unidad: 'series anime' },
+  programa: { nombre: 'Programas de TV', unidad: 'programas de TV' },
+  'novela-turca': { nombre: 'Novelas turcas', unidad: 'novelas turcas' },
 };
 
 // Inicio: el destacado y una fila por categoría, con «Ver todo» para abrir cada una
@@ -318,7 +321,7 @@ export function Inicio({ nav }) {
         )}
         <View style={{ paddingTop: 20, paddingBottom: 30 }}>
           {filas.length
-            ? filas.map((f) => <Fila key={f.id} titulo={f.titulo} items={f.items} onPress={abrir} onVerTodo={() => nav.ir('categoria', { tipo: f.id })} />)
+            ? filas.map((f) => <Fila key={f.id} titulo={f.titulo} items={f.items} onPress={abrir} onVerTodo={() => nav.ir('categoria', { tipo: f.id, titulo: f.titulo })} />)
             : <Vacio titulo="Todavía no hay nada" texto="En cuanto se añada contenido aparecerá aquí." />}
         </View>
       </ScrollView>
@@ -329,10 +332,10 @@ export function Inicio({ nav }) {
 
 // Una categoría: todos sus títulos en rejilla, con buscador. Sirve de pestaña y de pantalla
 // (al pulsar «Ver todo» en Inicio).
-function Categoria({ nav, tipo, atras }) {
+function Categoria({ nav, tipo, atras, titulo }) {
   const ins = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const { nombre, unidad } = CATEGORIAS[tipo];
+  const { nombre, unidad } = CATEGORIAS[tipo] ?? { nombre: titulo ?? 'Categoría', unidad: 'títulos' };
   const [q, setQ] = useState('');
   const { datos, error, cargando, recargar } = useDatos(() => api(`/titulos?categoria=${tipo}`), [tipo]);
   const columnas = Math.max(3, Math.floor(width / 140));
@@ -373,7 +376,7 @@ export const Peliculas = (props) => <Categoria {...props} tipo="pelicula" />;
 export const Series = (props) => <Categoria {...props} tipo="serie" />;
 export const Anime = (props) => <Categoria {...props} tipo="anime-pelicula" />;
 // Pantalla que se abre desde «Ver todo»
-export const PantallaCategoria = ({ nav, params }) => <Categoria nav={nav} tipo={params.tipo} atras />;
+export const PantallaCategoria = ({ nav, params }) => <Categoria nav={nav} tipo={params.tipo} titulo={params.titulo} atras />;
 
 function CabeceraMiLista({ nav }) {
   const u = useUsuario();

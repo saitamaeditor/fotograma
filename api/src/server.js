@@ -10,7 +10,7 @@ import * as telegram from './telegram.js';
 import * as cuentas from './cuentas.js';
 import * as registro from './registro.js';
 import * as hls from './hls.js';
-import { deTipo, deTitulo, limpiar, detectar, carpeta, CATEGORIAS, TIPO_BASE, categoriaDe, esDocumental, carpetaDocumental, conDocumental, esAnime, carpetaAnime, conAnime, NOMBRES_CATEGORIA } from './plataformas.js';
+import { deTipo, deTitulo, limpiar, detectar, carpeta, CATEGORIAS, TIPO_BASE, categoriaDe, esDocumental, conDocumental, esAnime, conAnime, esPrograma, conPrograma, esNovelaTurca, conNovelaTurca, generosPorCarpeta, NOMBRES_CATEGORIA } from './plataformas.js';
 
 const { PORT = 4000, ADMIN_KEY = '', CORS_ORIGINS = '*' } = process.env;
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'web');
@@ -369,6 +369,8 @@ admin.post('/titulos/:id/refrescar', asinc(async (req, res) => {
   // Si ya era documental (por su carpeta o a mano), TMDB no se lo quita
   if (esDocumental(t)) nueva.generos = conDocumental(nueva.generos);
   if (esAnime(t)) nueva.generos = conAnime(nueva.generos);
+  if (esPrograma(t)) nueva.generos = conPrograma(nueva.generos);
+  if (esNovelaTurca(t)) nueva.generos = conNovelaTurca(nueva.generos);
   if (t.tipo === 'pelicula') nueva.videoKey = t.videoKey;
   else for (const s of nueva.temporadas) for (const e of s.episodios) e.videoKey = buscarVideo(t, s.numero, e.numero) ?? null;
   res.json(titulos.actualizar(t.id, nueva));
@@ -401,8 +403,8 @@ admin.put('/titulos/:id/video', asinc(async (req, res) => {
     const cambios = { videoKey: key || null };
     // Si ya tiene plataformas elegidas, sumamos la que indique la carpeta del vídeo
     if (key && Array.isArray(t.plataformas)) cambios.plataformas = limpiar([...t.plataformas, ...detectar(carpeta(key), 'pelicula')]);
-    if (key && carpetaDocumental(key) && !esDocumental(t)) cambios.generos = conDocumental(t.generos);
-    if (key && carpetaAnime(key) && !esAnime(t)) cambios.generos = conAnime(cambios.generos ?? t.generos);
+    const generos = key && generosPorCarpeta(t, key);
+    if (generos) cambios.generos = generos;
     const nuevo = key && !t.videoKey;
     res.json(titulos.actualizar(t.id, cambios));
     if (nuevo) telegram.avisar([{ id: t.id }]).catch(() => {});
@@ -425,8 +427,8 @@ admin.put('/titulos/:id/video', asinc(async (req, res) => {
   ep.videoKey = key || null;
   const cambios = { temporadas };
   if (key && Array.isArray(t.plataformas)) cambios.plataformas = limpiar([...t.plataformas, ...detectar(carpeta(key), 'serie')]);
-  if (key && carpetaDocumental(key) && !esDocumental(t)) cambios.generos = conDocumental(t.generos);
-  if (key && carpetaAnime(key) && !esAnime(t)) cambios.generos = conAnime(cambios.generos ?? t.generos);
+  const generos = key && generosPorCarpeta(t, key);
+  if (generos) cambios.generos = generos;
   res.json(titulos.actualizar(t.id, cambios));
   if (nuevo) telegram.avisar([{ id: t.id, temporada: s.numero, episodio: ep.numero }]).catch(() => {});
 }));

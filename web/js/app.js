@@ -72,8 +72,8 @@ function tarjeta(t, { vertical = false } = {}) {
     </a>`;
 }
 
-// Las seis categorías: documentales y docuseries llevan el género «Documental» y el anime
-// el género «Anime». `ruta` es su dirección en la web (#/peliculas…).
+// Las categorías: documentales y docuseries llevan el género «Documental», el anime «Anime»,
+// los programas «Programa de TV» y las novelas turcas «Novela turca». `ruta` es su dirección en la web (#/peliculas…).
 const CATEGORIAS = {
   pelicula: { nombre: 'Películas', unidad: ['película', 'películas'], ruta: 'peliculas' },
   serie: { nombre: 'Series', unidad: ['serie', 'series'], ruta: 'series' },
@@ -81,16 +81,18 @@ const CATEGORIAS = {
   docuserie: { nombre: 'Docuseries', unidad: ['docuserie', 'docuseries'], ruta: 'docuseries' },
   'anime-pelicula': { nombre: 'Películas anime', unidad: ['película anime', 'películas anime'], ruta: 'anime' },
   'anime-serie': { nombre: 'Series anime', unidad: ['serie anime', 'series anime'], ruta: 'series-anime' },
+  programa: { nombre: 'Programas de TV', unidad: ['programa de TV', 'programas de TV'], ruta: 'programas' },
+  'novela-turca': { nombre: 'Novelas turcas', unidad: ['novela turca', 'novelas turcas'], ruta: 'novelas-turcas' },
 };
 // Texto «1 película», «3 series»…
-const cuantos = (n, tipo) => `${n} ${CATEGORIAS[tipo].unidad[n === 1 ? 0 : 1]}`;
+const cuantos = (n, tipo) => `${n} ${(CATEGORIAS[tipo]?.unidad ?? ['título', 'títulos'])[n === 1 ? 0 : 1]}`;
 
 function fila(titulo, items, tipo = 'pelicula') {
   return `
     <section class="fila">
       <div class="fila-cab">
         <h2>${esc(titulo)}</h2>
-        <a class="fila-total" href="#/${CATEGORIAS[tipo].ruta}">${cuantos(items.length, tipo)} · Ver todo ›</a>
+        <a class="fila-total" href="#/${CATEGORIAS[tipo]?.ruta ?? ''}">${cuantos(items.length, tipo)} · Ver todo ›</a>
       </div>
       <div class="fila-pista">
         <button class="flecha izq" aria-label="Anterior">${iconos.izq}</button>
@@ -640,6 +642,8 @@ const rutas = [
   [/^#\/documentales/, () => verCategoria('documental'), 'documentales'],
   [/^#\/docuseries/, () => verCategoria('docuserie'), 'docuseries'],
   [/^#\/anime/, () => verCategoria('anime-pelicula'), 'anime'],
+  [/^#\/programas/, () => verCategoria('programa'), 'programas'],
+  [/^#\/novelas-turcas/, () => verCategoria('novela-turca'), 'novelas-turcas'],
   [/^#\/buscar/, verBusqueda, 'buscar'],
   [/^#\/mi-lista/, verMiLista, 'mi-lista'],
   [/^#\/cuenta/, verCuenta, 'cuenta'],
@@ -659,6 +663,7 @@ async function enrutar() {
   for (const a of document.querySelectorAll('#nav a, #nav-movil a')) {
     a.classList.toggle('activo', a.getAttribute('href') === `#/${nombre === 'inicio' ? '' : nombre}`);
   }
+  document.querySelector('.nav-mas')?.classList.toggle('activo', Boolean(document.querySelector('.nav-menu a.activo')));
   vista.innerHTML = cargando();
   window.scrollTo(0, 0);
   try {
@@ -704,7 +709,7 @@ cuenta.alCambiar(pintarBotonCuenta);
 // Cuando llegan cambios de otro dispositivo (lista o progreso), se repinta la vista
 cuenta.alLlegarDatos(() => {
   const nombre = (rutas.find(([re]) => re.test(location.hash || '#/')) ?? rutas[0])[2];
-  if (['inicio', 'peliculas', 'series', 'mi-lista', 'documentales', 'docuseries', 'anime', 'series-anime'].includes(nombre)) {
+  if (['inicio', 'peliculas', 'series', 'mi-lista', 'documentales', 'docuseries', 'anime', 'series-anime', 'programas', 'novelas-turcas'].includes(nombre)) {
     const y = window.scrollY;
     enrutar().then(() => window.scrollTo(0, y));
   }
@@ -720,7 +725,7 @@ cuenta.refrescar().then((ok) => {
 // sin recargar ni mover el scroll y avisa de lo que ha llegado. En la ficha y el
 // reproductor no se toca nada para no interrumpir.
 const CADA_MS = 30_000;
-const REPINTABLES = new Set(['inicio', 'peliculas', 'series', 'documentales', 'docuseries', 'anime', 'series-anime', 'buscar', 'mi-lista']);
+const REPINTABLES = new Set(['inicio', 'peliculas', 'series', 'documentales', 'docuseries', 'anime', 'series-anime', 'programas', 'novelas-turcas', 'buscar', 'mi-lista']);
 let version = null;
 let conocidos = null;
 

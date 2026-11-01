@@ -10,7 +10,7 @@
 import * as e2 from './e2.js';
 import * as tmdb from './tmdb.js';
 import { titulos } from './db.js';
-import { detectar, carpeta, esDocumental, carpetaDocumental, conDocumental, esAnime, carpetaAnime, conAnime } from './plataformas.js';
+import { detectar, carpeta, generosPorCarpeta } from './plataformas.js';
 import * as telegram from './telegram.js';
 import { anotar } from './registro.js';
 
@@ -48,7 +48,8 @@ export function analizar(key) {
   const archivo = partes.at(-1);
   const carpetas = partes.slice(0, -1);
   const ep = archivo.match(/^(.*?)[ ._-]*(?<![a-z0-9])(?:S(\d{1,2})[ ._-]?E(\d{1,3})|(\d{1,2})x(\d{2,3})(?!\d)|T(\d{1,2})[ ._-]?E(\d{1,3}))/i);
-  const carpetaSerie = carpetas.some((c) => /serie/i.test(c));
+  // Carpetas de series, programas de TV y novelas: sus vídeos son episodios
+  const carpetaSerie = carpetas.some((c) => /serie|programa|novela|turc/i.test(c));
 
   if (ep || carpetaSerie) {
     // Temporada: del SxxExx o de una carpeta «Temporada 2» / «Season 2» / «T2»
@@ -56,7 +57,7 @@ export function analizar(key) {
     const temporada = Number(ep?.[2] ?? ep?.[4] ?? ep?.[6] ?? carpetaTemp?.[1] ?? 1);
     const episodio = Number(ep?.[3] ?? ep?.[5] ?? ep?.[7] ?? archivo.match(/(\d{1,3})/)?.[1]);
     // Nombre de la serie: lo que va antes del SxxExx, o la carpeta que no sea de plataforma ni de temporada
-    const nombreCarpeta = [...carpetas].reverse().find((c) => !/serie/i.test(c) && !/^(?:temporada|season|temp|t|s)\s*\d+$/i.test(c));
+    const nombreCarpeta = [...carpetas].reverse().find((c) => !/serie|programa|novela|turc/i.test(c) && !/^(?:temporada|season|temp|t|s)\s*\d+$/i.test(c));
     const { anio, antes } = separarAnio(ep?.[1] || nombreCarpeta || '');
     const nombre = limpiarNombre(antes);
     if (!nombre || !episodio) return null;
@@ -87,8 +88,9 @@ async function importar(key) {
     if (enCarpeta.length) ficha.plataformas = enCarpeta;
     t = titulos.crear({ ...ficha, importado: true });
   }
-  if (carpetaDocumental(key) && !esDocumental(t)) t = titulos.actualizar(t.id, { generos: conDocumental(t.generos) });
-  if (carpetaAnime(key) && !esAnime(t)) t = titulos.actualizar(t.id, { generos: conAnime(t.generos) });
+  // La carpeta del vídeo decide la categoría (documental, anime, programa de TV, novela turca)
+  const generos = generosPorCarpeta(t, key);
+  if (generos) t = titulos.actualizar(t.id, { generos });
 
   if (datos.tipo === 'pelicula') {
     titulos.actualizar(t.id, { videoKey: key });

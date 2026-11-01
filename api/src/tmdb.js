@@ -68,7 +68,13 @@ export async function ficha(tmdbId, tipo) {
     anio: (d.release_date ?? d.first_air_date ?? '').slice(0, 4),
     duracion: d.runtime ?? d.episode_run_time?.[0] ?? null,
     // La animación japonesa se marca como «Anime» (categoría propia en la web y la app)
-    generos: [...(d.original_language === 'ja' && (d.genres ?? []).some((g) => g.id === 16) ? ['Anime'] : []), ...(d.genres ?? []).map((g) => g.name)],
+    // y las series turcas como «Novela turca» y los realities, magacines y noticias como «Programa de TV»
+    generos: [
+      ...(d.original_language === 'ja' && (d.genres ?? []).some((g) => g.id === 16) ? ['Anime'] : []),
+      ...(esSerie && (d.genres ?? []).some((g) => [10763, 10764, 10767].includes(g.id)) ? ['Programa de TV'] : []),
+      ...(esSerie && d.original_language === 'tr' ? ['Novela turca'] : []),
+      ...(d.genres ?? []).map((g) => g.name),
+    ],
     valoracion: d.vote_average ? Math.round(d.vote_average * 10) / 10 : null,
     poster: img(d.poster_path, 'w500'),
     fondo: img(d.backdrop_path, 'w1280'),

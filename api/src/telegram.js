@@ -17,9 +17,11 @@ export const SECCIONES = {
   docuserie: { nombre: 'Docuseries', tema: '🎞 Docuseries', color: 9367192, cabecera: '🎞 <b>Nueva docuserie en MorvehTV</b>' },
   'anime-pelicula': { nombre: 'Películas anime', tema: '🍥 Películas anime', color: 16749490, cabecera: '🍥 <b>Nueva película anime en MorvehTV</b>' },
   'anime-serie': { nombre: 'Series anime', tema: '🍥 Series anime', color: 13338331, cabecera: '🍥 <b>Nueva serie anime en MorvehTV</b>' },
+  programa: { nombre: 'Programas de TV', tema: '📡 Programas de TV', color: 7322096, cabecera: '📡 <b>Nuevo programa de TV en MorvehTV</b>' },
+  'novela-turca': { nombre: 'Novelas turcas', tema: '🇹🇷 Novelas turcas', color: 16478047, cabecera: '🇹🇷 <b>Nueva novela turca en MorvehTV</b>' },
 };
 // Si una sección no tiene tema propio, usa el de su tipo (documental y anime → películas, docuserie y series anime → series)
-const BASE = { documental: 'pelicula', docuserie: 'serie', 'anime-pelicula': 'pelicula', 'anime-serie': 'serie' };
+const BASE = { documental: 'pelicula', docuserie: 'serie', 'anime-pelicula': 'pelicula', 'anime-serie': 'serie', programa: 'serie', 'novela-turca': 'serie' };
 
 const config = () => ({ activo: true, downloader: DOWNLOADER, ...ajustes.obtener('telegram') });
 

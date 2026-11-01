@@ -2,7 +2,7 @@
   "expo": {
     "name": "MorvehTV",
     "slug": "fotograma",
-    "version": "1.13.0",
+    "version": "1.14.0",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -13,7 +13,7 @@
     },
     "android": {
       "package": "com.fotograma.app",
-      "versionCode": 15,
+      "versionCode": 16,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0b0206"

@@ -29,12 +29,36 @@ const ORDEN_PELICULAS = ['netflix', 'prime', 'disney', 'hbo', 'appletv', 'movist
 
 // Categorías de la web y la app. Documentales y docuseries son películas y series con el
 // género «Documental»; el anime, las que tienen el género «Anime».
-export const CATEGORIAS = ['pelicula', 'serie', 'documental', 'docuserie', 'anime-pelicula', 'anime-serie'];
+export const CATEGORIAS = ['pelicula', 'serie', 'documental', 'docuserie', 'anime-pelicula', 'anime-serie', 'programa', 'novela-turca'];
 export const NOMBRES_CATEGORIA = {
   pelicula: 'Películas', serie: 'Series', documental: 'Documentales', docuserie: 'Docuseries',
   'anime-pelicula': 'Películas anime', 'anime-serie': 'Series anime',
+  programa: 'Programas de TV', 'novela-turca': 'Novelas turcas',
 };
-export const TIPO_BASE = { pelicula: 'pelicula', serie: 'serie', documental: 'pelicula', docuserie: 'serie', 'anime-pelicula': 'pelicula', 'anime-serie': 'serie' };
+export const TIPO_BASE = {
+  pelicula: 'pelicula', serie: 'serie', documental: 'pelicula', docuserie: 'serie',
+  'anime-pelicula': 'pelicula', 'anime-serie': 'serie', programa: 'serie', 'novela-turca': 'serie',
+};
+
+// Programas de TV (realities, magacines, concursos…) y novelas turcas llevan su género
+// «Programa de TV» / «Novela turca»: lo pone TMDB, la carpeta de e2 o el panel
+export const esPrograma = (t) => (t.generos ?? []).some((g) => /^programa de tv$/i.test(g));
+export const carpetaPrograma = (key) => /programa/i.test(carpeta(key));
+export const conPrograma = (generos = []) => (esPrograma({ generos }) ? generos : ['Programa de TV', ...generos]);
+export const esNovelaTurca = (t) => (t.generos ?? []).some((g) => /^novela turca$/i.test(g));
+export const carpetaNovelaTurca = (key) => /turc|novela/i.test(carpeta(key));
+export const conNovelaTurca = (generos = []) => (esNovelaTurca({ generos }) ? generos : ['Novela turca', ...generos]);
+
+// Pone el género que indica la carpeta del vídeo («DOCUMENTALES», «ANIME», «PROGRAMAS DE TV»,
+// «NOVELAS TURCAS»…). Devuelve los géneros nuevos o null si no cambia nada.
+export function generosPorCarpeta(t, key) {
+  let g = t.generos ?? [];
+  if (carpetaPrograma(key) && !esPrograma({ generos: g })) g = conPrograma(g);
+  else if (carpetaNovelaTurca(key) && !esNovelaTurca({ generos: g })) g = conNovelaTurca(g);
+  else if (carpetaAnime(key) && !esAnime({ generos: g })) g = conAnime(g);
+  else if (carpetaDocumental(key) && !esDocumental({ generos: g })) g = conDocumental(g);
+  return g === (t.generos ?? []) ? null : g;
+}
 export const esAnime = (t) => (t.generos ?? []).some((g) => /^anime$/i.test(g));
 // Un vídeo en una carpeta con «anime» en el nombre («07 - ANIME», «08 - SERIES ANIME») es anime
 export const carpetaAnime = (key) => /anime/i.test(carpeta(key));
@@ -46,6 +70,8 @@ export const carpetaDocumental = (key) => /docu/i.test(carpeta(key));
 export const conDocumental = (generos = []) => (esDocumental({ generos }) ? generos : ['Documental', ...generos]);
 export function categoriaDe(t) {
   const serie = t.tipo === 'serie';
+  if (esPrograma(t)) return 'programa';
+  if (esNovelaTurca(t)) return 'novela-turca';
   if (esAnime(t)) return serie ? 'anime-serie' : 'anime-pelicula';
   if (esDocumental(t)) return serie ? 'docuserie' : 'documental';
   return t.tipo;
