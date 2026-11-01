@@ -5,9 +5,10 @@ import { ajustes, titulos } from './db.js';
 import { PLATAFORMAS, deTitulo } from './plataformas.js';
 
 const WEB = (process.env.PUBLIC_URL ?? 'https://morvehtv.es').replace(/\/$/, '');
+const DOWNLOADER = '4040796'; // código de la app en Downloader (Fire TV / Android TV)
 const historial = []; // últimos avisos enviados (o fallidos), para verlos en el panel
 
-const config = () => ({ activo: true, ...ajustes.obtener('telegram') });
+const config = () => ({ activo: true, downloader: DOWNLOADER, ...ajustes.obtener('telegram') });
 
 async function llamar(token, metodo, cuerpo = {}) {
   const r = await fetch(`https://api.telegram.org/bot${token}/${metodo}`, {
@@ -21,7 +22,7 @@ async function llamar(token, metodo, cuerpo = {}) {
 }
 
 export function estado() {
-  const { token, chatId, chatNombre, bot, activo, esForo, temas } = config();
+  const { token, chatId, chatNombre, bot, activo, esForo, temas, downloader } = config();
   return {
     configurado: Boolean(token && chatId),
     activo,
@@ -30,13 +31,14 @@ export function estado() {
     chatId: chatId ?? null,
     chatNombre: chatNombre ?? null,
     esForo: Boolean(esForo),
+    downloader: downloader || null,
     temas: { pelicula: temas?.pelicula ?? null, serie: temas?.serie ?? null },
     historial,
   };
 }
 
 // Guarda lo que llegue; si cambia el token, comprueba antes que es válido
-export async function configurar({ token, chatId, chatNombre, esForo, temas, activo }) {
+export async function configurar({ token, chatId, chatNombre, esForo, temas, activo, downloader }) {
   const actual = config();
   const nuevo = { ...actual };
   if (token && token !== actual.token) {
@@ -50,6 +52,8 @@ export async function configurar({ token, chatId, chatNombre, esForo, temas, act
   // temas: { pelicula: { id, nombre } | null, serie: … }; null = tema General
   if (temas !== undefined) nuevo.temas = { ...nuevo.temas, ...temas };
   if (activo !== undefined) nuevo.activo = Boolean(activo);
+  // Vacío = sin botón de la app
+  if (downloader !== undefined) nuevo.downloader = String(downloader).replace(/\D/g, '');
   ajustes.guardar('telegram', nuevo);
   return estado();
 }
@@ -101,11 +105,15 @@ export async function crearTemas() {
 const html = (t) => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 async function enviar({ foto, texto, boton, tipo }) {
-  const { token, chatId, temas } = config();
+  const { token, chatId, temas, downloader } = config();
   // En grupos con temas, las películas y las series van cada una a su tema
   const tema = temas?.[tipo]?.id;
   const extra = {
-    ...(boton && { reply_markup: { inline_keyboard: [[{ text: boton.texto, url: boton.url }]] } }),
+    // Botones: ver en la web y, debajo, la app con su código de Downloader
+    ...((boton || downloader) && { reply_markup: { inline_keyboard: [
+      ...(boton ? [[{ text: boton.texto, url: boton.url }]] : []),
+      ...(downloader ? [[{ text: `📲 App · Código Downloader: ${downloader}`, url: `https://aftv.news/${downloader}` }]] : []),
+    ] } }),
     ...(tema && { message_thread_id: Number(tema) }),
   };
   if (foto) {
