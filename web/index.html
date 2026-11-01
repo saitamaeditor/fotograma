@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Fotograma</title>
+  <meta name="description" content="Películas y series en streaming." />
+  <meta name="theme-color" content="#141414" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23e31b23'/%3E%3Cpath d='M12 9.5v13l10.5-6.5z' fill='%23ffffff'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/estilos.css" />
+  <link rel="stylesheet" href="css/streaming.css" />
+</head>
+<body>
+  <header class="cabecera" id="cabecera">
+    <a href="#/" class="marca" aria-label="Fotograma, inicio">
+      <span class="marca-icono"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.14v13.72a1 1 0 0 0 1.5.86l11-6.86a1 1 0 0 0 0-1.72l-11-6.86A1 1 0 0 0 8 5.14Z"/></svg></span>
+      <span>Fotograma</span>
+    </a>
+    <nav class="nav" id="nav">
+      <a href="#/">Inicio</a>
+      <a href="#/peliculas">Películas</a>
+      <a href="#/series">Series</a>
+      <a href="#/mi-lista">Mi lista</a>
+    </nav>
+    <div class="cabecera-der">
+      <form class="buscador" id="buscador" role="search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input type="search" name="q" placeholder="Buscar títulos" aria-label="Buscar títulos" autocomplete="off" />
+      </form>
+    </div>
+  </header>
+
+  <main id="vista"></main>
+
+  <footer class="pie">
+    <span>© Fotograma</span>
+    <span>Metadatos e imágenes de TMDB. Este producto usa la API de TMDB pero no está respaldado ni certificado por TMDB.</span>
+  </footer>
+
+  <nav class="nav-movil" id="nav-movil"></nav>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

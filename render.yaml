@@ -1,0 +1,37 @@
+# Despliegue en Render (https://render.com): New → Blueprint → elige este repositorio.
+# Las claves se rellenan en el panel de Render (sync: false = no se guardan en el repositorio).
+services:
+  - type: web
+    name: fotograma
+    runtime: node
+    rootDir: api
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /api/estado
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: ADMIN_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: E2_ENDPOINT
+        sync: false
+      - key: E2_REGION
+        sync: false
+      - key: E2_BUCKET
+        sync: false
+      - key: E2_ACCESS_KEY_ID
+        sync: false
+      - key: E2_SECRET_ACCESS_KEY
+        sync: false
+      - key: E2_CARPETAS
+        value: ""
+      - key: E2_CARPETA_SUBIDAS
+        value: videos
+      - key: E2_URL_MINUTOS
+        value: "240"
+      - key: TMDB_KEY
+        sync: false
+      - key: TMDB_IDIOMA
+        value: es-ES
