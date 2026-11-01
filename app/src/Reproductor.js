@@ -41,16 +41,6 @@ export function Reproductor({ nav, params }) {
   return <Video key={fuente.url} fuente={fuente} nav={nav} params={params} ficha={ficha} />;
 }
 
-// Marca de agua con el correo del usuario: cambia de sitio cada 20 s
-function MarcaAgua({ texto }) {
-  const [pos, setPos] = useState({ left: '20%', top: '30%' });
-  useEffect(() => {
-    const t = setInterval(() => setPos({ left: `${8 + Math.random() * 55}%`, top: `${10 + Math.random() * 70}%` }), 20000);
-    return () => clearInterval(t);
-  }, []);
-  if (!texto) return null;
-  return <Text pointerEvents="none" style={[e.marcaAgua, pos]}>{texto}</Text>;
-}
 
 // 3725 → «1:02:05», 125 → «2:05»
 function reloj(s) {
@@ -150,7 +140,6 @@ function Video({ fuente, nav, params, ficha }) {
   return (
     <View style={e.raiz}>
       <VideoView player={player} style={StyleSheet.absoluteFill} contentFit="contain" nativeControls={false} allowsPictureInPicture={false} />
-      <MarcaAgua texto={fuente.marca} />
 
       {/* Capa a pantalla completa: un toque (u OK en el mando) muestra u oculta los controles */}
       <Pressable
@@ -259,7 +248,6 @@ function Opcion({ texto, activa, onPress, enfocar }) {
 const sombra = { textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 6 };
 const e = StyleSheet.create({
   raiz: { flex: 1, backgroundColor: '#000' },
-  marcaAgua: { position: 'absolute', color: 'rgba(255,255,255,0.22)', fontSize: 14, fontWeight: '600', letterSpacing: 0.5, textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 4 },
   centro: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
   arriba: { position: 'absolute', top: 0, left: 0, right: 0, flexDirection: 'row', alignItems: 'center', gap: 14, paddingBottom: 30, backgroundColor: 'rgba(0,0,0,0.55)' },
   redondo: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.14)', alignItems: 'center', justifyContent: 'center' },

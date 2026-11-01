@@ -113,7 +113,7 @@ La app móvil no se publica así: cada versión nueva es un APK que se genera co
 
 ## Protección del vídeo (cifrado)
 
-- Solo se puede ver con cuenta. Los vídeos cifrados se sirven en trozos HLS cifrados con AES-128; la clave la da el servidor solo con un permiso de la sesión que caduca en 6 h, y cada trozo se descarga de e2 con un enlace de 2 minutos. La web y la app ponen una marca de agua con el correo del usuario; la app Android bloquea capturas y grabación de pantalla.
+- Solo se puede ver con cuenta. Los vídeos cifrados se sirven en trozos HLS cifrados con AES-128; la clave la da el servidor solo con un permiso de la sesión que caduca en 6 h, y cada trozo se descarga de e2 con un enlace de 2 minutos. La app Android bloquea capturas y grabación de pantalla.
 - **Cifrar vídeos:** doble clic en **`Cifrar.bat`**. Cifra todos los vídeos del catálogo que aún no lo están (los descarga a tu PC, los parte con ffmpeg y sube los trozos a `_hls/` en e2). Necesita ffmpeg y `api/.env`. Un vídeo nuevo se ve sin cifrar (MP4 con enlace firmado) hasta que pasas `Cifrar.bat`.
 - Opciones: `node --env-file=.env scripts/cifrar.mjs --uno` (solo uno), `--video="carpeta/archivo.mp4"`, `--borrar-original` (borra el MP4 de e2 tras cifrarlo para no ocupar el doble).
 - El bucket solo acepta peticiones del navegador desde morvehtv.es y el panel de GitHub (`npm run cors -- https://morvehtv.es,https://www.morvehtv.es,https://saitamaeditor.github.io`).

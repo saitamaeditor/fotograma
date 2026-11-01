@@ -624,27 +624,10 @@ async function cargarFuente(video, fuente) {
   addEventListener('hashchange', () => h.destroy(), { once: true });
 }
 
-// Sin menú contextual ni «Guardar vídeo como», pantalla completa con la marca de agua
-// incluida y la marca moviéndose para que no se pueda tapar ni recortar fácilmente.
+// Sin menú contextual ni «Guardar vídeo como»
 function protegerReproductor(video, marco) {
   video.addEventListener('contextmenu', (ev) => ev.preventDefault());
   marco.addEventListener('contextmenu', (ev) => ev.preventDefault());
-  // Si se pone en pantalla completa solo el vídeo, se cambia al marco (vídeo + marca)
-  video.addEventListener('fullscreenchange', () => {
-    if (document.fullscreenElement === video) document.exitFullscreen().then(() => marco.requestFullscreen?.()).catch(() => {});
-  });
-  video.addEventListener('dblclick', (ev) => {
-    ev.preventDefault();
-    if (document.fullscreenElement) document.exitFullscreen(); else marco.requestFullscreen?.();
-  });
-  const marca = document.getElementById('marca-agua');
-  const mover = () => {
-    marca.style.left = `${8 + Math.random() * 60}%`;
-    marca.style.top = `${10 + Math.random() * 70}%`;
-  };
-  mover();
-  const intervalo = setInterval(mover, 20000);
-  addEventListener('hashchange', () => clearInterval(intervalo), { once: true });
 }
 
 async function verReproductor(id) {
@@ -687,7 +670,6 @@ async function verReproductor(id) {
       </div>
       <div class="reproductor-video" id="marco">
         <video id="video" controls autoplay playsinline preload="metadata" controlslist="nodownload noremoteplayback" disablepictureinpicture disableremoteplayback></video>
-        <div class="marca-agua" id="marca-agua" aria-hidden="true">${esc(fuente.marca ?? '')}</div>
       </div>
     </div>`;
 

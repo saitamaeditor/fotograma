@@ -494,13 +494,12 @@ app.get('/api/titulos/:id/reproducir', conCuenta, asinc(async (req, res) => {
   const key = buscarVideo(t, req.query.t, req.query.e);
   if (!key) return res.status(404).json({ error: 'Este contenido todavía no tiene vídeo' });
   registro.reproduccion(t.id);
-  const marca = req.usuario.email;
   const prefijo = buscarHls(t, req.query.t, req.query.e);
   if (prefijo && claves.obtener(prefijo)) {
     const tk = hls.crearPermiso({ usuario: req.usuario.id, prefijo });
-    return res.json({ tipo: 'hls', url: `${req.protocol}://${req.get('host')}/api/hls/${tk}/index.m3u8`, marca });
+    return res.json({ tipo: 'hls', url: `${req.protocol}://${req.get('host')}/api/hls/${tk}/index.m3u8` });
   }
-  res.json({ tipo: 'mp4', url: await e2.urlReproduccion(key), marca });
+  res.json({ tipo: 'mp4', url: await e2.urlReproduccion(key) });
 }));
 
 app.get('/api/hls/:tk/index.m3u8', asinc(async (req, res) => {
