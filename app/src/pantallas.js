@@ -44,6 +44,14 @@ function usePlataformas(tipo = 'pelicula') {
   return { ...estado, cambiar, reintentar };
 }
 
+// Categorías: documentales y docuseries son títulos con el género «Documental»
+const CATEGORIAS = {
+  pelicula: { nombre: 'Películas', unidad: 'películas', marca: '' },
+  serie: { nombre: 'Series', unidad: 'series', marca: 'SERIES' },
+  documental: { nombre: 'Documentales', unidad: 'documentales', marca: 'DOCUMENTALES' },
+  docuserie: { nombre: 'Docuseries', unidad: 'docuseries', marca: 'DOCUSERIES' },
+};
+
 // Portada: destacado, selector y una fila por plataforma (películas) o cadena (series)
 function Portada({ nav, tipo }) {
   const { width, height } = useWindowDimensions();
@@ -60,8 +68,9 @@ function Portada({ nav, tipo }) {
   if (!datos) return <Cargando />;
   const { destacado, filas } = datos;
   const abrir = (t) => nav.ir('ficha', { id: t.id });
-  const series = tipo === 'serie';
-  const nada = series ? 'series' : 'películas';
+  const { nombre, unidad, marca } = CATEGORIAS[tipo];
+  const series = tipo === 'serie' || tipo === 'docuserie';
+  const nada = unidad;
 
   return (
     <ScrollView refreshControl={<RefreshControl refreshing={cargando} onRefresh={recargar} tintColor={c.acento} />}>
@@ -71,7 +80,7 @@ function Portada({ nav, tipo }) {
           <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(11,11,15,0.35)' }]} />
           <View style={e.degradado} />
           <View style={{ padding: 16, paddingTop: ins.top + 16 }}>
-            <Text style={e.marca}>MorvehTV{series ? ' · SERIES' : ''}</Text>
+            <Text style={e.marca}>MorvehTV{marca ? ` · ${marca}` : ''}</Text>
             <Text style={[e.heroTitulo, { fontSize: width > 600 ? 48 : 34 }]}>{destacado.titulo}</Text>
             <Text style={e.heroTexto} numberOfLines={3}>{destacado.sinopsis}</Text>
             <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
@@ -81,7 +90,7 @@ function Portada({ nav, tipo }) {
           </View>
         </View>
       ) : (
-        <Text style={[e.h1, { paddingHorizontal: 16, paddingTop: ins.top + 16 }]}>{series ? 'Series' : 'Películas'}</Text>
+        <Text style={[e.h1, { paddingHorizontal: 16, paddingTop: ins.top + 16 }]}>{nombre}</Text>
       )}
       <View style={{ paddingTop: 20, paddingBottom: 30 }}>
         <SelectorPlataformas
@@ -89,7 +98,7 @@ function Portada({ nav, tipo }) {
           elegidas={plat.elegidas}
           onCambiar={plat.cambiar}
           titulo={series ? 'Cadenas originales' : 'Mis plataformas'}
-          ayuda={series ? 'Dónde se emitió originalmente cada serie, no dónde puedes verla ahora.' : null}
+          ayuda={series ? `Dónde se emitió originalmente cada ${tipo === 'serie' ? 'serie' : 'docuserie'}, no dónde puedes verla ahora.` : null}
         />
         {filas.length
           ? filas.map((f) => <Fila key={f.id} titulo={f.titulo} color={f.color} items={f.items} onPress={abrir} />)
@@ -104,6 +113,8 @@ function Portada({ nav, tipo }) {
 
 export const Inicio = (props) => <Portada {...props} tipo="pelicula" />;
 export const Series = (props) => <Portada {...props} tipo="serie" />;
+export const Documentales = (props) => <Portada {...props} tipo="documental" />;
+export const Docuseries = (props) => <Portada {...props} tipo="docuserie" />;
 
 // ---------- Películas (búsqueda y filtro por plataforma) ----------
 export function Explorar({ nav }) {
@@ -118,7 +129,7 @@ export function Explorar({ nav }) {
   const { datos, error, recargar } = useDatos(async () => {
     if (!plat.lista) return null;
     if (!clave) return [];
-    return api(`/titulos?${new URLSearchParams({ tipo: 'pelicula', plataformas: clave, ...(buscado && { q: buscado }) })}`);
+    return api(`/titulos?${new URLSearchParams({ categoria: 'pelicula', plataformas: clave, ...(buscado && { q: buscado }) })}`);
   }, [plat.lista, clave, buscado]);
   const columnas = Math.max(3, Math.floor(width / 140));
   const ancho = (width - 32 - (columnas - 1) * 10) / columnas;
@@ -202,7 +213,7 @@ export function Ficha({ nav, params }) {
   const [temporada, setTemporada] = useState(null);
   const [enLista, setEnLista] = useState(false);
   const { datos, error, recargar } = useDatos(async () => {
-    const [t, prog, ids] = await Promise.all([api(`/titulos/${params.id}`), progreso.todo(), miLista.ids(), cargarPlataformas('pelicula'), cargarPlataformas('serie')]);
+    const [t, prog, ids] = await Promise.all([api(`/titulos/${params.id}`), progreso.todo(), miLista.ids(), cargarPlataformas('pelicula'), cargarPlataformas('serie'), cargarPlataformas('documental'), cargarPlataformas('docuserie')]);
     setEnLista(ids.includes(params.id));
     return { t, p: prog[params.id] };
   }, [params.id]);

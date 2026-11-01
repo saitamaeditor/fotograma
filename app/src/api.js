@@ -40,15 +40,16 @@ export const progreso = {
 
 // Plataformas (Netflix, Prime Video…) de películas y cadenas originales de series,
 // y las que ha elegido el espectador en cada sección
-const plataformas = { pelicula: [], serie: [] };
+const plataformas = { pelicula: [], serie: [], documental: [], docuserie: [] };
 export async function cargarPlataformas(tipo = 'pelicula') {
-  plataformas[tipo] = await api(tipo === 'serie' ? '/plataformas?tipo=serie' : '/plataformas');
+  plataformas[tipo] = await api(`/plataformas?tipo=${tipo}`);
   return plataformas[tipo];
 }
 export const infoPlataforma = (id) =>
-  [...plataformas.pelicula, ...plataformas.serie].find((p) => p.id === id) ?? { id, nombre: id, color: '#555' };
+  Object.values(plataformas).flat().find((p) => p.id === id) ?? { id, nombre: id, color: '#555' };
 
-const claveElegidas = (tipo) => (tipo === 'serie' ? 'fg-plataformas-series' : 'fg-plataformas');
+const CLAVES = { pelicula: 'fg-plataformas', serie: 'fg-plataformas-series', documental: 'fg-plataformas-documentales', docuserie: 'fg-plataformas-docuseries' };
+const claveElegidas = (tipo) => CLAVES[tipo];
 export const misPlataformas = {
   // Sin elección guardada se ven todas
   async obtener(tipo = 'pelicula') {
