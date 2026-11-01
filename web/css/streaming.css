@@ -133,6 +133,8 @@ h1, h2, h3 { font-weight: 800; letter-spacing: -0.02em; }
 /* ---------- Selector de plataformas ---------- */
 .plataformas { margin: 0 var(--lado) 36px; padding: 18px; background: #1a1a22; border: 1px solid #2a2a35; border-radius: 8px; position: relative; z-index: 3; }
 .pagina .plataformas { margin: 0 0 28px; }
+.sin-destacado { padding: 100px var(--lado) 0; margin-bottom: 24px; }
+.filas.sin-destacado-filas { margin-top: 0; }
 .plataformas-cab { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 14px; }
 .plataformas-cab h2 { font-size: 18px; color: #fff; }
 .plataformas-resumen { font-size: 13px; color: var(--texto-2); }

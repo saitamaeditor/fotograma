@@ -187,8 +187,8 @@ async function verPortada(tipo) {
             <a class="btn btn-secundario" href="#/titulo/${destacado.id}">${iconos.info} Más información</a>
           </div>
         </div>
-      </section>` : '<div style="height:90px"></div>'}
-    <div class="filas">
+      </section>` : `<div class="pagina-cab sin-destacado"><h1>${tipo === 'serie' ? 'Series' : 'Películas'}</h1></div>`}
+    <div class="filas ${destacado ? '' : 'sin-destacado-filas'}">
       ${selectorPlataformas(tipo)}
       ${filas.length
         ? filas.map((f) => fila(f.titulo, f.items, f.color, tipo)).join('')
