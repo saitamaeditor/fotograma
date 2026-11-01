@@ -209,8 +209,21 @@ async function verPortada(tipo) {
 
 const verInicio = () => verPortada('pelicula');
 const verSeries = () => verPortada('serie');
-const verDocumentales = () => verPortada('documental');
-const verDocuseries = () => verPortada('docuserie');
+const verDocumentales = () => verListado('documental');
+const verDocuseries = () => verListado('docuserie');
+
+// Documentales y docuseries: todos juntos, sin separar por plataforma
+async function verListado(tipo) {
+  await cargarPlataformas();
+  const lista = await api(`/titulos?categoria=${tipo}`);
+  vista.innerHTML = `
+    <div class="pagina">
+      <div class="pagina-cab"><h1>${CATEGORIAS[tipo].nombre}</h1><span class="texto-2">${cuantos(lista.length, tipo)}</span></div>
+      ${lista.length
+        ? `<div class="rejilla">${lista.map((t) => tarjeta(t, { vertical: true })).join('')}</div>`
+        : vacio(`Sin ${CATEGORIAS[tipo].unidad[1]}`, `Todavía no hay ${CATEGORIAS[tipo].unidad[1]} en el catálogo.`)}
+    </div>`;
+}
 
 async function verCatalogo() {
   await cargarPlataformas();

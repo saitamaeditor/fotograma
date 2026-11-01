@@ -113,8 +113,38 @@ function Portada({ nav, tipo }) {
 
 export const Inicio = (props) => <Portada {...props} tipo="pelicula" />;
 export const Series = (props) => <Portada {...props} tipo="serie" />;
-export const Documentales = (props) => <Portada {...props} tipo="documental" />;
-export const Docuseries = (props) => <Portada {...props} tipo="docuserie" />;
+export const Documentales = (props) => <Listado {...props} tipo="documental" />;
+export const Docuseries = (props) => <Listado {...props} tipo="docuserie" />;
+
+// Documentales y docuseries: todos juntos en una rejilla, sin separar por plataforma
+function Listado({ nav, tipo }) {
+  const ins = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const { nombre, unidad } = CATEGORIAS[tipo];
+  const { datos, error, cargando, recargar } = useDatos(async () => {
+    await cargarPlataformas(tipo === 'docuserie' ? 'serie' : 'pelicula'); // colores de las etiquetas
+    return api(`/titulos?categoria=${tipo}`);
+  }, [tipo]);
+  const columnas = Math.max(3, Math.floor(width / 140));
+  const ancho = (width - 32 - (columnas - 1) * 10) / columnas;
+
+  if (error) return <ErrorConexion error={error} recargar={recargar} nav={nav} />;
+  if (!datos) return <Cargando />;
+  return (
+    <FlatList
+      data={datos}
+      key={columnas}
+      numColumns={columnas}
+      keyExtractor={(t) => t.id}
+      refreshControl={<RefreshControl refreshing={cargando} onRefresh={recargar} tintColor={c.acento} />}
+      ListHeaderComponent={<Text style={[e.h1, { paddingTop: ins.top + 16, paddingBottom: 16 }]}>{nombre}</Text>}
+      ListEmptyComponent={<Vacio titulo={`Sin ${unidad}`} texto={`Todavía no hay ${unidad} en el catálogo.`} />}
+      renderItem={({ item }) => <Tarjeta t={item} ancho={ancho} onPress={(t) => nav.ir('ficha', { id: t.id })} />}
+      contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 30 }}
+      columnWrapperStyle={{ gap: 10, marginBottom: 14 }}
+    />
+  );
+}
 
 // ---------- Películas (búsqueda y filtro por plataforma) ----------
 export function Explorar({ nav }) {
