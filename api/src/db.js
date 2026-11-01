@@ -48,6 +48,16 @@ function guardar() {
     .catch((err) => console.error('No se pudo guardar el catálogo en e2:', err.message));
 }
 
+// Claves AES-128 de los vídeos cifrados, por carpeta de e2 (_hls/…). Van aparte de los
+// títulos para que nunca salgan en la API pública.
+export const claves = {
+  obtener: (prefijo) => datos.claves?.[prefijo] ?? null,
+  guardar(prefijo, hex) {
+    datos.claves = { ...datos.claves, [prefijo]: hex };
+    guardar();
+  },
+};
+
 // Copia completa de la base de datos (catálogo, cuentas y ajustes) para el panel
 export const exportar = () => datos;
 

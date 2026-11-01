@@ -48,6 +48,8 @@ function fijarSinc(s) {
 }
 
 export const usuario = () => sesion?.usuario ?? null;
+// El vídeo solo se da con sesión: { tipo: 'hls' | 'mp4', url, marca }
+export const pedirVideo = (ruta) => pedir(ruta, { token: sesion?.token });
 // Devuelven la función para dejar de escuchar
 export const alCambiar = (fn) => { oyentes.add(fn); return () => oyentes.delete(fn); };
 // Avisa cuando llegan cambios de otro dispositivo (para recargar la pantalla)

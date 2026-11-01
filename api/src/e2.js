@@ -105,6 +105,11 @@ export function abortarSubida({ key, uploadId }) {
   return cliente().send(new AbortMultipartUploadCommand({ Bucket: bucket, Key: key, UploadId: uploadId }));
 }
 
+// Enlace firmado de muy corta duración (para cada trozo cifrado del vídeo)
+export function urlCorta(key, segundos_ = 120) {
+  return getSignedUrl(cliente(), new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn: segundos_ });
+}
+
 export function urlReproduccion(key) {
   return getSignedUrl(cliente(), new GetObjectCommand({ Bucket: bucket, Key: key }), {
     expiresIn: segundos(E2_URL_MINUTOS),
@@ -142,8 +147,15 @@ export function borrar(key) {
 }
 
 // Todos los vídeos de las carpetas configuradas (y de la carpeta de subidas)
+// Carpetas de primer nivel del bucket, sin las internas que empiezan por «_» (_hls con los
+// trozos cifrados, _fotograma con el catálogo): ni son vídeos nuevos ni hace falta recorrerlas
+async function carpetasRaiz() {
+  const r = await cliente().send(new ListObjectsV2Command({ Bucket: bucket, Delimiter: '/' }));
+  return (r.CommonPrefixes ?? []).map((p) => p.Prefix).filter((p) => !p.startsWith('_'));
+}
+
 export async function listarVideos() {
-  const prefijos = carpetas.length ? [...new Set([...carpetas, `${carpetaSubidas}/`])] : [''];
+  const prefijos = carpetas.length ? [...new Set([...carpetas, `${carpetaSubidas}/`])] : await carpetasRaiz();
   const listas = await Promise.all(prefijos.map((p) => listar(p)));
   const vistos = new Map();
   for (const o of listas.flat()) if (esVideo(o.key)) vistos.set(o.key, o);

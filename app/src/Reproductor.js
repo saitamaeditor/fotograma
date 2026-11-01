@@ -1,30 +1,55 @@
 import { useEffect, useRef, useState } from 'react';
+import { usePreventScreenCapture } from 'expo-screen-capture';
 import { View, Text, Pressable, ScrollView, ActivityIndicator, BackHandler, StyleSheet } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useEvent } from 'expo';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { api, progreso, siguienteEpisodio } from './api';
+import { progreso, siguienteEpisodio } from './api';
+import * as cuenta from './cuenta';
 import { Cargando, Vacio, Boton, Enfocable } from './componentes';
 import { c } from './tema';
 
 const SALTO = 10; // segundos que avanzan o retroceden los botones
 const OCULTAR_MS = 4000; // los controles se esconden solos mientras se reproduce
 
-// Pide a la API el enlace firmado de IDrive e2 y lo reproduce directamente.
+// Pide a la API el vídeo (solo con sesión). Si está cifrado llega como HLS con AES-128:
+// los trozos y la clave solo se sirven con el permiso de esta sesión, que caduca.
 export function Reproductor({ nav, params }) {
   const { id, t: temporada, e: episodio, titulo: ficha } = params;
-  const [url, setUrl] = useState(null);
+  const [fuente, setFuente] = useState(null);
   const [error, setError] = useState(null);
+  // Android: no se pueden hacer capturas ni grabar la pantalla mientras se ve un vídeo
+  usePreventScreenCapture();
 
   useEffect(() => {
-    setUrl(null);
+    setFuente(null);
+    if (!cuenta.usuario()) return;
     const q = temporada ? `?t=${temporada}&e=${episodio}` : '';
-    api(`/titulos/${id}/reproducir${q}`).then((r) => setUrl(r.url)).catch(setError);
+    cuenta.pedirVideo(`/titulos/${id}/reproducir${q}`).then(setFuente).catch(setError);
   }, [id, temporada, episodio]);
 
+  if (!cuenta.usuario() || error?.status === 401) {
+    return (
+      <Vacio titulo="Inicia sesión para ver" texto="Es gratis. Con tu cuenta sigues viendo donde lo dejaste en cualquier dispositivo.">
+        <Boton texto="Entrar" style={{ marginTop: 16 }} onPress={() => nav.reemplazar('cuenta')} />
+        <Boton texto="Volver" tipo="secundario" style={{ marginTop: 10 }} onPress={nav.atras} />
+      </Vacio>
+    );
+  }
   if (error) return <Vacio titulo="No se puede reproducir" texto={error.message}><Boton texto="Volver" style={{ marginTop: 16 }} onPress={nav.atras} /></Vacio>;
-  if (!url) return <Cargando />;
-  return <Video key={url} url={url} nav={nav} params={params} ficha={ficha} />;
+  if (!fuente) return <Cargando />;
+  return <Video key={fuente.url} fuente={fuente} nav={nav} params={params} ficha={ficha} />;
+}
+
+// Marca de agua con el correo del usuario: cambia de sitio cada 20 s
+function MarcaAgua({ texto }) {
+  const [pos, setPos] = useState({ left: '20%', top: '30%' });
+  useEffect(() => {
+    const t = setInterval(() => setPos({ left: `${8 + Math.random() * 55}%`, top: `${10 + Math.random() * 70}%` }), 20000);
+    return () => clearInterval(t);
+  }, []);
+  if (!texto) return null;
+  return <Text pointerEvents="none" style={[e.marcaAgua, pos]}>{texto}</Text>;
 }
 
 // 3725 → «1:02:05», 125 → «2:05»
@@ -42,7 +67,7 @@ const IDIOMAS = {
 };
 const nombrePista = (p, i) => p.label || IDIOMAS[p.language?.slice(0, 2)] || p.language?.toUpperCase() || `Pista ${i + 1}`;
 
-function Video({ url, nav, params, ficha }) {
+function Video({ fuente, nav, params, ficha }) {
   const { id, t: temporada, e: episodio } = params;
   const ins = useSafeAreaInsets();
   const reanudado = useRef(false);
@@ -54,7 +79,7 @@ function Video({ url, nav, params, ficha }) {
   const ep = temporada ? ficha.temporadas.find((s) => s.numero === temporada)?.episodios.find((x) => x.numero === episodio) : null;
   const sig = temporada ? siguienteEpisodio(ficha, temporada, episodio) : null;
 
-  const player = useVideoPlayer(url, (p) => {
+  const player = useVideoPlayer(fuente.tipo === 'hls' ? { uri: fuente.url, contentType: 'hls' } : fuente.url, (p) => {
     p.timeUpdateEventInterval = 0.5;
     p.play();
   });
@@ -124,7 +149,8 @@ function Video({ url, nav, params, ficha }) {
 
   return (
     <View style={e.raiz}>
-      <VideoView player={player} style={StyleSheet.absoluteFill} contentFit="contain" nativeControls={false} allowsPictureInPicture />
+      <VideoView player={player} style={StyleSheet.absoluteFill} contentFit="contain" nativeControls={false} allowsPictureInPicture={false} />
+      <MarcaAgua texto={fuente.marca} />
 
       {/* Capa a pantalla completa: un toque (u OK en el mando) muestra u oculta los controles */}
       <Pressable
@@ -233,6 +259,7 @@ function Opcion({ texto, activa, onPress, enfocar }) {
 const sombra = { textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 6 };
 const e = StyleSheet.create({
   raiz: { flex: 1, backgroundColor: '#000' },
+  marcaAgua: { position: 'absolute', color: 'rgba(255,255,255,0.22)', fontSize: 14, fontWeight: '600', letterSpacing: 0.5, textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 4 },
   centro: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
   arriba: { position: 'absolute', top: 0, left: 0, right: 0, flexDirection: 'row', alignItems: 'center', gap: 14, paddingBottom: 30, backgroundColor: 'rgba(0,0,0,0.55)' },
   redondo: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.14)', alignItems: 'center', justifyContent: 'center' },

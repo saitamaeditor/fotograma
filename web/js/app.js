@@ -602,13 +602,76 @@ async function verTitulo(id) {
   }
 }
 
+// Vídeo cifrado (HLS + AES-128): Safari lo reproduce solo; el resto con hls.js, que pide
+// la clave al servidor con el permiso de la sesión. Si aún no está cifrado, MP4 firmado.
+let hlsJs = null;
+async function cargarFuente(video, fuente) {
+  if (fuente.tipo !== 'hls') { video.src = fuente.url; return; }
+  if (video.canPlayType('application/vnd.apple.mpegurl')) { video.src = fuente.url; return; }
+  hlsJs ??= new Promise((ok, ko) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js';
+    s.onload = () => ok(window.Hls);
+    s.onerror = ko;
+    document.head.append(s);
+  });
+  const Hls = await hlsJs;
+  const h = new Hls({ maxBufferLength: 60 });
+  h.loadSource(fuente.url);
+  h.attachMedia(video);
+  h.on(Hls.Events.ERROR, (_, d) => { if (d.fatal) avisar('No se pudo cargar el vídeo. Vuelve a intentarlo.', true); });
+  // Al salir del reproductor se para la descarga de trozos
+  addEventListener('hashchange', () => h.destroy(), { once: true });
+}
+
+// Sin menú contextual ni «Guardar vídeo como», pantalla completa con la marca de agua
+// incluida y la marca moviéndose para que no se pueda tapar ni recortar fácilmente.
+function protegerReproductor(video, marco) {
+  video.addEventListener('contextmenu', (ev) => ev.preventDefault());
+  marco.addEventListener('contextmenu', (ev) => ev.preventDefault());
+  // Si se pone en pantalla completa solo el vídeo, se cambia al marco (vídeo + marca)
+  video.addEventListener('fullscreenchange', () => {
+    if (document.fullscreenElement === video) document.exitFullscreen().then(() => marco.requestFullscreen?.()).catch(() => {});
+  });
+  video.addEventListener('dblclick', (ev) => {
+    ev.preventDefault();
+    if (document.fullscreenElement) document.exitFullscreen(); else marco.requestFullscreen?.();
+  });
+  const marca = document.getElementById('marca-agua');
+  const mover = () => {
+    marca.style.left = `${8 + Math.random() * 60}%`;
+    marca.style.top = `${10 + Math.random() * 70}%`;
+  };
+  mover();
+  const intervalo = setInterval(mover, 20000);
+  addEventListener('hashchange', () => clearInterval(intervalo), { once: true });
+}
+
 async function verReproductor(id) {
   const params = new URLSearchParams(location.hash.split('?')[1]);
   const temporada = Number(params.get('t')) || undefined;
   const episodio = Number(params.get('e')) || undefined;
   const t = await api(`/titulos/${id}`);
+  // Para ver hace falta cuenta: el servidor solo da el vídeo (cifrado) a usuarios con sesión
+  if (!cuenta.usuario()) {
+    vista.innerHTML = `
+      <div class="c-pagina"><div class="c-caja" style="text-align:center">
+        <div class="c-logo">Morveh<b>TV</b></div>
+        <h1>Inicia sesión para ver «${esc(t.titulo)}»</h1>
+        <p class="c-sub" style="margin:10px 0 22px">Es gratis. Con tu cuenta, además, sigues viendo donde lo dejaste en cualquier dispositivo.</p>
+        <a class="btn btn-primario c-enviar" href="#/cuenta">Entrar</a>
+        <p class="c-cambiar">¿No tienes cuenta? <a href="#/cuenta?nueva">Créala gratis</a></p>
+      </div></div>`;
+    return;
+  }
   const q = t.tipo === 'serie' ? `?t=${temporada}&e=${episodio}` : '';
-  const { url } = await api(`/titulos/${id}/reproducir${q}`);
+  let fuente;
+  try {
+    fuente = await api(`/titulos/${id}/reproducir${q}`, { token: cuenta.token() });
+  } catch (err) {
+    if (err.status === 401) { await cuenta.salir({ avisarServidor: false }); location.hash = '#/cuenta'; return; }
+    throw err;
+  }
   const ep = t.tipo === 'serie' ? t.temporadas.find((s) => s.numero === temporada)?.episodios.find((e) => e.numero === episodio) : null;
   const sig = t.tipo === 'serie' ? siguienteEpisodio(t, temporada, episodio) : null;
 
@@ -622,11 +685,17 @@ async function verReproductor(id) {
         </div>
         ${sig ? `<a class="btn btn-secundario btn-chico reproductor-sig" href="#/ver/${id}?t=${sig.t}&e=${sig.e}">Siguiente episodio ${iconos.der}</a>` : ''}
       </div>
-      <video id="video" src="${esc(url)}" controls autoplay playsinline preload="metadata"></video>
+      <div class="reproductor-video" id="marco">
+        <video id="video" controls autoplay playsinline preload="metadata" controlslist="nodownload noremoteplayback" disablepictureinpicture disableremoteplayback></video>
+        <div class="marca-agua" id="marca-agua" aria-hidden="true">${esc(fuente.marca ?? '')}</div>
+      </div>
     </div>`;
 
   const video = document.getElementById('video');
   const caja = document.getElementById('reproductor');
+  const marco = document.getElementById('marco');
+  await cargarFuente(video, fuente);
+  protegerReproductor(video, marco);
   const previo = progreso.de(id);
   const mismo = t.tipo === 'pelicula' || (previo?.t === temporada && previo?.e === episodio);
   video.addEventListener('loadedmetadata', () => {

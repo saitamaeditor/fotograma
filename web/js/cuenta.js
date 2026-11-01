@@ -35,6 +35,7 @@ function guardarSinc(s) {
 }
 
 export const usuario = () => sesion?.usuario ?? null;
+export const token = () => sesion?.token ?? null;
 export const alCambiar = (fn) => oyentes.add(fn);
 // Avisa cuando llegan cambios de otro dispositivo (para repintar la vista)
 export const alLlegarDatos = (fn) => oyentesDatos.add(fn);

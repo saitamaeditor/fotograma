@@ -4,11 +4,12 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as e2 from './e2.js';
 import * as tmdb from './tmdb.js';
-import { titulos, usuarios, ajustes, exportar, iniciar as iniciarDb } from './db.js';
+import { titulos, usuarios, ajustes, exportar, claves, iniciar as iniciarDb } from './db.js';
 import * as importador from './importador.js';
 import * as telegram from './telegram.js';
 import * as cuentas from './cuentas.js';
 import * as registro from './registro.js';
+import * as hls from './hls.js';
 import { deTipo, deTitulo, limpiar, detectar, carpeta, CATEGORIAS, TIPO_BASE, categoriaDe, esDocumental, carpetaDocumental, conDocumental } from './plataformas.js';
 
 const { PORT = 4000, ADMIN_KEY = '', CORS_ORIGINS = '*' } = process.env;
@@ -61,7 +62,7 @@ function publico(t, completo = false) {
       numero: s.numero,
       nombre: s.nombre,
       poster: s.poster,
-      episodios: s.episodios.map(({ videoKey, ...e }) => ({ ...e, disponible: Boolean(videoKey) })),
+      episodios: s.episodios.map(({ videoKey, hls: _hls, ...e }) => ({ ...e, disponible: Boolean(videoKey) })),
     })),
   };
 }
@@ -151,16 +152,12 @@ function buscarVideo(t, temporada, episodio) {
   return s?.episodios.find((e) => e.numero === Number(episodio))?.videoKey;
 }
 
-// Devuelve un enlace firmado y temporal de e2. El reproductor lee el vídeo directamente
-// de e2 (con saltos por Range), así que el vídeo no pasa por este servidor.
-app.get('/api/titulos/:id/reproducir', asinc(async (req, res) => {
-  const t = titulos.obtener(req.params.id);
-  if (!t) return res.status(404).json({ error: 'No existe ese título' });
-  const key = buscarVideo(t, req.query.t, req.query.e);
-  if (!key) return res.status(404).json({ error: 'Este contenido todavía no tiene vídeo' });
-  registro.reproduccion(t.id);
-  res.json({ url: await e2.urlReproduccion(key) });
-}));
+// Carpeta cifrada (HLS) de una película o episodio, si ya se ha cifrado
+function buscarHls(t, temporada, episodio) {
+  if (t.tipo === 'pelicula') return t.hls;
+  const s = t.temporadas?.find((x) => x.numero === Number(temporada));
+  return s?.episodios.find((e) => e.numero === Number(episodio))?.hls;
+}
 
 // ---------- Administración (cabecera x-api-key) ----------
 const admin = express.Router();
@@ -294,6 +291,39 @@ admin.patch('/titulos/:id', (req, res) => {
   const t = titulos.actualizar(req.params.id, cambios);
   if (!t) return res.status(404).json({ error: 'No existe ese título' });
   res.json(t);
+});
+
+// ---------- Cifrado (lo usa la herramienta scripts/cifrar.mjs) ----------
+// Vídeos enlazados que aún no están cifrados
+admin.get('/hls/pendientes', (req, res) => {
+  const lista = [];
+  for (const t of titulos.todos()) {
+    if (t.tipo === 'pelicula') { if (t.videoKey && !t.hls) lista.push({ videoKey: t.videoKey, titulo: t.titulo }); continue; }
+    for (const s of t.temporadas ?? []) for (const e of s.episodios) {
+      if (e.videoKey && !e.hls) lista.push({ videoKey: e.videoKey, titulo: `${t.titulo} T${s.numero}:E${e.numero}` });
+    }
+  }
+  res.json(lista);
+});
+// Guarda la clave y marca como cifrado todo lo que use ese vídeo
+admin.put('/hls', (req, res) => {
+  const { videoKey, prefijo, clave } = req.body ?? {};
+  if (!videoKey || !/^_hls\/[\w-]+$/.test(String(prefijo)) || !/^[0-9a-f]{32}$/.test(String(clave))) {
+    return res.status(400).json({ error: 'Datos de cifrado no válidos' });
+  }
+  claves.guardar(prefijo, clave);
+  let usados = 0;
+  for (const t of titulos.todos()) {
+    if (t.tipo === 'pelicula' && t.videoKey === videoKey) { titulos.actualizar(t.id, { hls: prefijo }); usados++; }
+    if (t.tipo === 'serie') {
+      let cambia = false;
+      for (const s of t.temporadas ?? []) for (const e of s.episodios) if (e.videoKey === videoKey) { e.hls = prefijo; cambia = true; usados++; }
+      if (cambia) titulos.actualizar(t.id, { temporadas: t.temporadas });
+    }
+  }
+  hls.olvidarLista(prefijo);
+  registro.anotar('titulo', `Vídeo cifrado: ${videoKey}`);
+  res.json({ ok: true, usados });
 });
 
 // Acciones sobre varios títulos a la vez: destacar, quitar de destacados o borrar
@@ -454,6 +484,42 @@ const conCuenta = (req, res, next) => {
   req.sesion = r.sesion;
   next();
 };
+// ---------- Reproducción protegida ----------
+// Solo con cuenta. Si el vídeo está cifrado, se da una lista HLS cuyos trozos y clave solo
+// se sirven con un permiso firmado para ese usuario que caduca en 6 h; cada trozo sale de
+// e2 con un enlace de 2 minutos. Si aún no está cifrado, enlace firmado al MP4.
+app.get('/api/titulos/:id/reproducir', conCuenta, asinc(async (req, res) => {
+  const t = titulos.obtener(req.params.id);
+  if (!t) return res.status(404).json({ error: 'No existe ese título' });
+  const key = buscarVideo(t, req.query.t, req.query.e);
+  if (!key) return res.status(404).json({ error: 'Este contenido todavía no tiene vídeo' });
+  registro.reproduccion(t.id);
+  const marca = req.usuario.email;
+  const prefijo = buscarHls(t, req.query.t, req.query.e);
+  if (prefijo && claves.obtener(prefijo)) {
+    const tk = hls.crearPermiso({ usuario: req.usuario.id, prefijo });
+    return res.json({ tipo: 'hls', url: `${req.protocol}://${req.get('host')}/api/hls/${tk}/index.m3u8`, marca });
+  }
+  res.json({ tipo: 'mp4', url: await e2.urlReproduccion(key), marca });
+}));
+
+app.get('/api/hls/:tk/index.m3u8', asinc(async (req, res) => {
+  const p = hls.leerPermiso(req.params.tk);
+  if (!p) return res.status(403).send('Permiso caducado');
+  res.set({ 'Content-Type': 'application/vnd.apple.mpegurl', 'Cache-Control': 'no-store' }).send(await hls.lista(p.prefijo));
+}));
+app.get('/api/hls/:tk/clave', (req, res) => {
+  const p = hls.leerPermiso(req.params.tk);
+  const hex = p && claves.obtener(p.prefijo);
+  if (!hex) return res.status(403).send('Permiso caducado');
+  res.set({ 'Content-Type': 'application/octet-stream', 'Cache-Control': 'no-store, private' }).send(Buffer.from(hex, 'hex'));
+});
+app.get('/api/hls/:tk/s/:trozo', asinc(async (req, res) => {
+  const p = hls.leerPermiso(req.params.tk);
+  if (!p || !/^[\w-]+\.ts$/.test(req.params.trozo)) return res.status(403).send('Permiso caducado');
+  res.set('Cache-Control', 'no-store').redirect(302, await e2.urlCorta(`${p.prefijo}/${req.params.trozo}`, 120));
+}));
+
 app.post('/api/cuenta/registro', asinc(async (req, res) => res.status(201).json(await cuentas.registrar(req.body ?? {}, req.ip))));
 app.post('/api/cuenta/entrar', asinc(async (req, res) => res.json(await cuentas.entrar(req.body ?? {}, req.ip))));
 app.get('/api/cuenta', conCuenta, (req, res) => {
