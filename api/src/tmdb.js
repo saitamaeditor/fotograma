@@ -52,9 +52,11 @@ export async function ficha(tmdbId, tipo) {
   const esSerie = tipo === 'serie';
   const d = await pedir(`/${esSerie ? 'tv' : 'movie'}/${tmdbId}`, { append_to_response: 'videos,credits,watch/providers' });
   const trailer = (d.videos?.results ?? []).find((v) => v.site === 'YouTube' && v.type === 'Trailer');
-  // Plataformas de suscripción donde está en España según TMDB (JustWatch)
-  const proveedores = d['watch/providers']?.results?.[TMDB_REGION]?.flatrate ?? [];
-  const plataformas = detectar(proveedores.map((p) => p.provider_name).join(' | '));
+  // Películas: plataformas de suscripción donde está en España según TMDB (JustWatch).
+  // Series: la cadena donde se emitió originalmente; si no se reconoce, también JustWatch.
+  const proveedores = (d['watch/providers']?.results?.[TMDB_REGION]?.flatrate ?? []).map((p) => p.provider_name);
+  const cadenas = esSerie ? detectar((d.networks ?? []).map((n) => n.name).join(' | '), 'serie') : [];
+  const plataformas = cadenas.length ? cadenas : detectar(proveedores.join(' | '), tipo);
   const base = {
     tmdbId: d.id,
     tipo,

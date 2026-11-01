@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import * as e2 from './e2.js';
 import * as tmdb from './tmdb.js';
 import { titulos, iniciar as iniciarDb } from './db.js';
-import { PLATAFORMAS, deTitulo, limpiar, detectar } from './plataformas.js';
+import { deTipo, deTitulo, limpiar, detectar, carpeta } from './plataformas.js';
 
 const { PORT = 4000, ADMIN_KEY = '', CORS_ORIGINS = '*' } = process.env;
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'web');
@@ -81,23 +81,26 @@ app.get('/api/titulos', (req, res) => {
   res.json(res2);
 });
 
-// Portada: solo películas, una fila por cada plataforma elegida (?plataformas=netflix,prime).
-// Sin el parámetro salen todas. Web y app usan exactamente lo mismo.
+// Portada de películas (o de series con ?tipo=serie): una fila por cada plataforma elegida
+// (?plataformas=netflix,prime). Sin el parámetro salen todas. Web y app usan lo mismo.
 app.get('/api/inicio', (req, res) => {
-  const elegidas = req.query.plataformas ? limpiar(String(req.query.plataformas).split(',')) : PLATAFORMAS.map((p) => p.id);
-  const peliculas = titulos.todos().filter((t) => t.tipo === 'pelicula').map((t) => publico(t));
-  const filas = PLATAFORMAS.filter((p) => elegidas.includes(p.id))
-    .map(({ id, nombre, color }) => ({ id, titulo: nombre, color, items: peliculas.filter((t) => t.plataformas.includes(id)) }))
+  const tipo = req.query.tipo === 'serie' ? 'serie' : 'pelicula';
+  const disponibles = deTipo(tipo);
+  const elegidas = req.query.plataformas ? limpiar(String(req.query.plataformas).split(',')) : disponibles.map((p) => p.id);
+  const lista = titulos.todos().filter((t) => t.tipo === tipo).map((t) => publico(t));
+  const filas = disponibles.filter((p) => elegidas.includes(p.id))
+    .map(({ id, nombre, color }) => ({ id, titulo: nombre, color, items: lista.filter((t) => t.plataformas.includes(id)) }))
     .filter((f) => f.items.length);
   const visibles = filas.flatMap((f) => f.items);
   const destacado = visibles.find((t) => t.disponible && t.fondo) ?? visibles.find((t) => t.fondo) ?? null;
   res.json({ destacado, filas });
 });
 
-// Plataformas con cuántas películas tiene cada una en el catálogo
+// Plataformas de películas (o de series con ?tipo=serie) con cuántos títulos tiene cada una
 app.get('/api/plataformas', (req, res) => {
-  const peliculas = titulos.todos().filter((t) => t.tipo === 'pelicula').map(deTitulo);
-  res.json(PLATAFORMAS.map(({ id, nombre, color }) => ({ id, nombre, color, total: peliculas.filter((p) => p.includes(id)).length })));
+  const tipo = req.query.tipo === 'serie' ? 'serie' : 'pelicula';
+  const vistas = titulos.todos().filter((t) => t.tipo === tipo).map(deTitulo);
+  res.json(deTipo(tipo).map(({ id, nombre, color }) => ({ id, nombre, color, total: vistas.filter((p) => p.includes(id)).length })));
 });
 
 app.get('/api/generos', (req, res) => {
@@ -197,7 +200,7 @@ admin.put('/titulos/:id/video', asinc(async (req, res) => {
   if (t.tipo === 'pelicula') {
     const cambios = { videoKey: key || null };
     // Si ya tiene plataformas elegidas, sumamos la que indique la carpeta del vídeo
-    if (key && Array.isArray(t.plataformas)) cambios.plataformas = limpiar([...t.plataformas, ...detectar(key.split('/').slice(0, -1).join('/'))]);
+    if (key && Array.isArray(t.plataformas)) cambios.plataformas = limpiar([...t.plataformas, ...detectar(carpeta(key), 'pelicula')]);
     return res.json(titulos.actualizar(t.id, cambios));
   }
   const temporadas = t.temporadas ?? [];
@@ -214,7 +217,9 @@ admin.put('/titulos/:id/video', asinc(async (req, res) => {
     s.episodios.sort((a, b) => a.numero - b.numero);
   }
   ep.videoKey = key || null;
-  res.json(titulos.actualizar(t.id, { temporadas }));
+  const cambios = { temporadas };
+  if (key && Array.isArray(t.plataformas)) cambios.plataformas = limpiar([...t.plataformas, ...detectar(carpeta(key), 'serie')]);
+  res.json(titulos.actualizar(t.id, cambios));
 }));
 
 // Subida multiparte: el navegador sube los trozos directamente a e2 con URLs firmadas

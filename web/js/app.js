@@ -35,7 +35,7 @@ const progreso = {
 // ---------- Plantillas ----------
 // En filas: tarjeta horizontal (imagen de fondo) que se amplía con info al pasar el ratón.
 // En rejillas: cartel vertical.
-// Etiquetas de color con las plataformas de una película
+// Etiquetas de color con las plataformas de una película o serie
 const etiquetasPlataforma = (t) =>
   (t.plataformas ?? []).length
     ? `<span class="plat-etiquetas">${t.plataformas.map((p) => `<span class="plat-etiqueta" style="--plat:${esc(colorPlataforma(p))}">${esc(nombrePlataforma(p))}</span>`).join('')}</span>`
@@ -74,12 +74,15 @@ function tarjeta(t, { vertical = false } = {}) {
     </a>`;
 }
 
-function fila(titulo, items, color) {
+// Texto «1 película», «3 series»…
+const cuantos = (n, tipo) => `${n} ${tipo === 'serie' ? (n === 1 ? 'serie' : 'series') : (n === 1 ? 'película' : 'películas')}`;
+
+function fila(titulo, items, color, tipo = 'pelicula') {
   return `
     <section class="fila">
       <div class="fila-cab">
         <h2>${color ? `<span class="punto" style="background:${esc(color)}"></span>` : ''}${esc(titulo)}</h2>
-        <span class="fila-total">${items.length} ${items.length === 1 ? 'película' : 'películas'}</span>
+        <span class="fila-total">${cuantos(items.length, tipo)}</span>
       </div>
       <div class="fila-pista">
         <button class="flecha izq" aria-label="Anterior">${iconos.izq}</button>
@@ -114,51 +117,62 @@ function activarCarruseles() {
 }
 
 // ---------- Plataformas elegidas por el espectador ----------
-let plataformas = []; // [{ id, nombre, color, total }] desde la API
-const nombrePlataforma = (id) => plataformas.find((p) => p.id === id)?.nombre ?? id;
-const colorPlataforma = (id) => plataformas.find((p) => p.id === id)?.color ?? '#555';
+// Películas y series tienen su propia lista: en series son las cadenas originales.
+const plataformas = { pelicula: [], serie: [] }; // [{ id, nombre, color, total }] desde la API
+const todasPlataformas = () => [...plataformas.pelicula, ...plataformas.serie];
+const nombrePlataforma = (id) => todasPlataformas().find((p) => p.id === id)?.nombre ?? id;
+const colorPlataforma = (id) => todasPlataformas().find((p) => p.id === id)?.color ?? '#555';
+const claveElegidas = (tipo) => (tipo === 'serie' ? 'fg-plataformas-series' : 'fg-plataformas');
 // Sin elección guardada se ven todas
-const elegidas = () => leer('fg-plataformas', null) ?? plataformas.map((p) => p.id);
+const elegidas = (tipo) => leer(claveElegidas(tipo), null) ?? plataformas[tipo].map((p) => p.id);
 
 async function cargarPlataformas() {
-  if (!plataformas.length) plataformas = await api('/plataformas');
+  if (plataformas.pelicula.length) return;
+  [plataformas.pelicula, plataformas.serie] = await Promise.all([api('/plataformas'), api('/plataformas?tipo=serie')]);
 }
 
-function selectorPlataformas() {
-  const sel = elegidas();
-  const resumen = sel.length === plataformas.length ? 'Todas las plataformas' : sel.length ? sel.map(nombrePlataforma).join(', ') : 'Ninguna plataforma';
+function selectorPlataformas(tipo) {
+  const lista = plataformas[tipo];
+  const sel = elegidas(tipo);
+  const resumen = sel.length === lista.length ? 'Todas' : sel.length ? sel.map(nombrePlataforma).join(', ') : 'Ninguna';
+  const [titulo, ayuda] = tipo === 'serie'
+    ? ['Cadenas originales', 'Indica dónde se emitió originalmente cada serie, no dónde puedes verla ahora.']
+    : ['Mis plataformas', ''];
   return `
     <section class="plataformas" aria-labelledby="plat-titulo">
       <div class="plataformas-cab">
-        <h2 id="plat-titulo">Mis plataformas</h2>
+        <h2 id="plat-titulo">${titulo}</h2>
         <span class="plataformas-resumen">Mostrando: <b>${esc(resumen)}</b></span>
       </div>
+      ${ayuda ? `<p class="plataformas-ayuda">${ayuda}</p>` : ''}
       <div class="plataformas-rejilla">
-        ${plataformas.map((p) => `
+        ${lista.map((p) => `
           <label class="plataforma ${sel.includes(p.id) ? 'activa' : ''}" style="--plat:${esc(p.color)}">
             <input type="checkbox" value="${p.id}" ${sel.includes(p.id) ? 'checked' : ''} />
             <span class="plataforma-nombre">${esc(p.nombre)}</span>
-            <span class="plataforma-total">${p.total} ${p.total === 1 ? 'película' : 'películas'}</span>
+            <span class="plataforma-total">${cuantos(p.total, tipo)}</span>
           </label>`).join('')}
       </div>
     </section>`;
 }
 
 // Al marcar o desmarcar una plataforma se guarda la elección y se repinta la vista
-function activarSelector(repintar) {
+function activarSelector(tipo, repintar) {
   vista.querySelector('.plataformas-rejilla')?.addEventListener('change', () => {
     const marcadas = [...vista.querySelectorAll('.plataformas-rejilla input:checked')].map((i) => i.value);
-    escribir('fg-plataformas', marcadas);
+    escribir(claveElegidas(tipo), marcadas);
     repintar();
   });
 }
 
 // ---------- Vistas ----------
-async function verInicio() {
+// Portada de películas (Inicio) o de series: destacado, selector y una fila por plataforma
+async function verPortada(tipo) {
   await cargarPlataformas();
-  const sel = elegidas();
-  const { destacado, filas } = sel.length ? await api(`/inicio?plataformas=${sel.join(',')}`) : { destacado: null, filas: [] };
+  const sel = elegidas(tipo);
+  const { destacado, filas } = sel.length ? await api(`/inicio?tipo=${tipo}&plataformas=${sel.join(',')}`) : { destacado: null, filas: [] };
   const y = window.scrollY;
+  const nada = tipo === 'serie' ? 'series' : 'películas';
 
   vista.innerHTML = `
     ${destacado ? `
@@ -175,33 +189,36 @@ async function verInicio() {
         </div>
       </section>` : '<div style="height:90px"></div>'}
     <div class="filas">
-      ${selectorPlataformas()}
+      ${selectorPlataformas(tipo)}
       ${filas.length
-        ? filas.map((f) => fila(f.titulo, f.items, f.color)).join('')
-        : vacio(sel.length ? 'Sin películas' : 'Elige una plataforma', sel.length ? 'Todavía no hay películas en las plataformas elegidas.' : 'Marca arriba las plataformas que quieres ver.')}
+        ? filas.map((f) => fila(f.titulo, f.items, f.color, tipo)).join('')
+        : vacio(sel.length ? `Sin ${nada}` : 'Elige una plataforma', sel.length ? `Todavía no hay ${nada} en las plataformas elegidas.` : 'Marca arriba las plataformas que quieres ver.')}
     </div>`;
   activarCarruseles();
-  activarSelector(async () => { await verInicio(); window.scrollTo(0, y); });
+  activarSelector(tipo, async () => { await verPortada(tipo); window.scrollTo(0, y); });
 }
+
+const verInicio = () => verPortada('pelicula');
+const verSeries = () => verPortada('serie');
 
 async function verCatalogo() {
   await cargarPlataformas();
-  const sel = elegidas();
+  const sel = elegidas('pelicula');
   const lista = sel.length ? await api(`/titulos?tipo=pelicula&plataformas=${sel.join(',')}`) : [];
   vista.innerHTML = `
     <div class="pagina">
       <div class="pagina-cab"><h1>Películas</h1></div>
-      ${selectorPlataformas()}
+      ${selectorPlataformas('pelicula')}
       ${lista.length ? `<div class="rejilla">${lista.map((t) => tarjeta(t, { vertical: true })).join('')}</div>` : vacio('Nada por aquí', 'No hay películas en las plataformas elegidas.')}
     </div>`;
-  activarSelector(verCatalogo);
+  activarSelector('pelicula', verCatalogo);
 }
 
 async function verBusqueda() {
   const q = new URLSearchParams(location.hash.split('?')[1]).get('q') ?? '';
   document.querySelector('#buscador input').value = q;
   await cargarPlataformas();
-  const lista = q ? await api(`/titulos?tipo=pelicula&q=${encodeURIComponent(q)}`) : [];
+  const lista = q ? await api(`/titulos?q=${encodeURIComponent(q)}`) : [];
   vista.innerHTML = `
     <div class="pagina">
       <div class="pagina-cab"><h1>${q ? `Resultados para «${esc(q)}»` : 'Buscar'}</h1></div>
@@ -366,7 +383,8 @@ async function verReproductor(id) {
 // ---------- Enrutador ----------
 const rutas = [
   [/^#?\/?$/, verInicio, 'inicio'],
-  [/^#\/(peliculas|series)/, verCatalogo, 'peliculas'],
+  [/^#\/peliculas/, verCatalogo, 'peliculas'],
+  [/^#\/series/, verSeries, 'series'],
   [/^#\/buscar/, verBusqueda, 'buscar'],
   [/^#\/mi-lista/, verMiLista, 'mi-lista'],
   [/^#\/titulo\/([\w-]+)/, verTitulo, 'titulo'],
@@ -397,6 +415,7 @@ async function enrutar() {
 document.getElementById('nav-movil').innerHTML = `
   <a href="#/">${iconos.casa}Inicio</a>
   <a href="#/peliculas">${iconos.peli}Películas</a>
+  <a href="#/series">${iconos.tv}Series</a>
   <a href="#/mi-lista">${iconos.lista}Mi lista</a>`;
 
 document.getElementById('buscador').addEventListener('submit', (ev) => {

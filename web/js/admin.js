@@ -159,12 +159,13 @@ function estadoVideos(t) {
   return `<span class="pildora ${cls}">${con}/${eps.length} episodios</span>`;
 }
 
-let plataformas = [];
-const nombrePlataforma = (id) => plataformas.find((p) => p.id === id)?.nombre ?? id;
+// Plataformas de películas y cadenas originales de series
+const plataformas = { pelicula: [], serie: [] };
+const nombrePlataforma = (id) => [...plataformas.pelicula, ...plataformas.serie].find((p) => p.id === id)?.nombre ?? id;
 
 async function verCatalogo() {
   const lista = await api('/admin/titulos');
-  plataformas = await api('/plataformas');
+  [plataformas.pelicula, plataformas.serie] = await Promise.all([api('/plataformas'), api('/plataformas?tipo=serie')]);
   contenido.innerHTML = `
     <div class="contenido-cab">
       <h1>Catálogo</h1>
@@ -358,9 +359,9 @@ function dialogoEditar(t) {
       <label class="campo"><span>Géneros (separados por comas)</span><input name="generos" value="${esc((t.generos ?? []).join(', '))}" /></label>
       <label class="campo"><span>URL del cartel</span><input name="poster" value="${esc(t.poster ?? '')}" /></label>
       <label class="campo"><span>URL de la imagen de fondo</span><input name="fondo" value="${esc(t.fondo ?? '')}" /></label>
-      <div class="campo"><span>Plataformas</span>
+      <div class="campo"><span>${t.tipo === 'serie' ? 'Cadenas originales' : 'Plataformas'}</span>
         <div class="casillas">
-          ${plataformas.map((p) => `<label class="casilla"><input type="checkbox" name="plataformas" value="${p.id}" ${(t.plataformasVistas ?? []).includes(p.id) ? 'checked' : ''} /> ${esc(p.nombre)}</label>`).join('')}
+          ${plataformas[t.tipo === 'serie' ? 'serie' : 'pelicula'].map((p) => `<label class="casilla"><input type="checkbox" name="plataformas" value="${p.id}" ${(t.plataformasVistas ?? []).includes(p.id) ? 'checked' : ''} /> ${esc(p.nombre)}</label>`).join('')}
         </div>
       </div>
       <div><button class="btn btn-primario">Guardar</button></div>
