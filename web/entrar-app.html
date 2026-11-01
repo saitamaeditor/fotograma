@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <title>Entrar en la app · MorvehTV</title>
+  <meta name="theme-color" content="#0a0b14" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; }
+    body { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; background: radial-gradient(circle at 50% 0%, #1a0a10, #0a0b14 60%); color: #f4f5f8; font-family: Inter, system-ui, sans-serif; text-align: center; }
+    .caja { width: min(100%, 400px); padding: 32px 24px; border-radius: 22px; background: #11121b; border: 1px solid rgba(255, 255, 255, 0.08); }
+    .logo { font-weight: 900; font-size: 26px; letter-spacing: -0.02em; }
+    .logo b { color: #e31b23; }
+    p { color: #a3a7ba; line-height: 1.5; margin: 12px 0 24px; }
+    #google { display: flex; justify-content: center; min-height: 44px; }
+    #estado { margin-top: 18px; font-size: 14px; color: #a3a7ba; min-height: 1.4em; }
+    #estado.error { color: #ef5b5b; }
+    a.volver { display: inline-block; margin-top: 20px; color: #fff; font-weight: 600; text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <main class="caja">
+    <div class="logo">Morveh<b>TV</b></div>
+    <p>Entra con tu cuenta de Google para tener tu lista y lo que estás viendo en la app.</p>
+    <div id="google"></div>
+    <div id="estado" role="status"></div>
+    <a class="volver" href="morvehtv://cuenta" hidden id="volver">Volver a la app</a>
+  </main>
+
+  <script>
+    // Página que abre la app de MorvehTV para «Continuar con Google». Al entrar, el servidor
+    // da un código de un solo uso ligado al reto de la app y se vuelve a ella con ese código.
+    const reto = new URLSearchParams(location.search).get('reto');
+    const estado = document.getElementById('estado');
+    const mostrar = (texto, error = false) => { estado.textContent = texto; estado.className = error ? 'error' : ''; };
+    const volver = (params) => { location.href = `morvehtv://cuenta?${new URLSearchParams(params)}`; };
+
+    async function iniciar() {
+      if (!reto) return mostrar('Abre esta página desde la app de MorvehTV.', true);
+      const { google: clientId } = await fetch('/api/cuenta/config').then((r) => r.json());
+      if (!clientId) return mostrar('El acceso con Google aún no está disponible.', true);
+      await new Promise((ok, ko) => {
+        const s = document.createElement('script');
+        s.src = 'https://accounts.google.com/gsi/client';
+        s.onload = ok;
+        s.onerror = ko;
+        document.head.append(s);
+      });
+      google.accounts.id.initialize({
+        client_id: clientId,
+        callback: async ({ credential }) => {
+          mostrar('Entrando…');
+          try {
+            const r = await fetch('/api/cuenta/google/app', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ credencial: credential, reto }),
+            });
+            const d = await r.json();
+            if (!r.ok) throw new Error(d.error ?? 'No se pudo entrar');
+            mostrar('¡Listo! Volviendo a la app…');
+            document.getElementById('volver').href = `morvehtv://cuenta?codigo=${encodeURIComponent(d.codigo)}`;
+            document.getElementById('volver').hidden = false;
+            volver({ codigo: d.codigo });
+          } catch (err) {
+            mostrar(err.message, true);
+          }
+        },
+      });
+      google.accounts.id.renderButton(document.getElementById('google'), { theme: 'filled_black', size: 'large', shape: 'pill', text: 'continue_with', locale: 'es' });
+    }
+    iniciar().catch(() => mostrar('No se pudo cargar Google. Revisa la conexión y vuelve a intentarlo.', true));
+  </script>
+</body>
+</html>

@@ -329,6 +329,11 @@ const conCuenta = (req, res, next) => {
 };
 app.post('/api/cuenta/registro', asinc(async (req, res) => res.status(201).json(await cuentas.registrar(req.body ?? {}, req.ip))));
 app.post('/api/cuenta/entrar', asinc(async (req, res) => res.json(await cuentas.entrar(req.body ?? {}, req.ip))));
+// Google: la web manda la credencial y recibe la sesión; la app pasa por /entrar-app y canjea un código
+app.get('/api/cuenta/config', (req, res) => res.json({ google: cuentas.GOOGLE_CLIENT_ID || null }));
+app.post('/api/cuenta/google', asinc(async (req, res) => res.json(await cuentas.entrarGoogle(req.body ?? {}, req.ip))));
+app.post('/api/cuenta/google/app', asinc(async (req, res) => res.json(await cuentas.codigoParaApp(req.body ?? {}, req.ip))));
+app.post('/api/cuenta/canjear', (req, res) => res.json(cuentas.canjearCodigo(req.body ?? {})));
 app.get('/api/cuenta', conCuenta, (req, res) => {
   const { id, email, nombre, datos } = req.usuario;
   res.set('Cache-Control', 'no-store').json({ usuario: { id, email, nombre }, datos: datos ?? {} });

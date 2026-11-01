@@ -266,7 +266,7 @@ function verCuenta() {
           <p class="texto-2" style="margin-top:12px">Tu lista, lo que estás viendo y tus plataformas elegidas se guardan en tu cuenta. Entra con el mismo correo en el móvil o la tele para tenerlo todo igual.</p>
           <form id="form-contrasena" class="cuenta-form">
             <h2>Cambiar contraseña</h2>
-            <input class="entrada" type="password" name="actual" placeholder="Contraseña actual" autocomplete="current-password" required />
+            <input class="entrada" type="password" name="actual" placeholder="Contraseña actual (vacía si entras con Google)" autocomplete="current-password" />
             <input class="entrada" type="password" name="nueva" placeholder="Contraseña nueva (mínimo 6)" autocomplete="new-password" minlength="6" required />
             <button class="btn btn-secundario">Cambiar contraseña</button>
           </form>
@@ -300,6 +300,8 @@ function verCuenta() {
           <a href="#/cuenta" class="${registro ? '' : 'activa'}">Iniciar sesión</a>
           <a href="#/cuenta?nueva" class="${registro ? 'activa' : ''}">Crear cuenta</a>
         </div>
+        <div id="google" class="cuenta-google" hidden></div>
+        <div id="google-o" class="cuenta-o" hidden><span>o con tu correo</span></div>
         <form id="form-cuenta" class="cuenta-form">
           ${registro ? '<input class="entrada" name="nombre" placeholder="Tu nombre" autocomplete="name" maxlength="40" />' : ''}
           <input class="entrada" type="email" name="email" placeholder="Correo electrónico" autocomplete="email" required />
@@ -310,6 +312,13 @@ function verCuenta() {
         <p class="texto-2" style="margin-top:14px">Con una cuenta, tu lista y lo que estás viendo son privados y los tienes igual en la web, el móvil y la tele.</p>
       </div>
     </div>`;
+  const google = document.getElementById('google');
+  cuenta.botonGoogle(
+    google,
+    () => { avisar(`Hola, ${cuenta.usuario().nombre}`); location.hash = '#/'; },
+    (err) => { document.getElementById('cuenta-error').textContent = err.message; },
+  ).then(() => { document.getElementById('google-o').hidden = google.hidden; }).catch(() => {});
+
   document.getElementById('form-cuenta').onsubmit = async (ev) => {
     ev.preventDefault();
     const f = new FormData(ev.currentTarget);

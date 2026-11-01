@@ -43,7 +43,19 @@ export function Cuenta({ nav }) {
   const [registro, setRegistro] = useState(false);
   const [campos, setCampos] = useState({ nombre: '', email: '', contrasena: '' });
   const [estado, setEstado] = useState({ cargando: false, error: '' });
+  const [conGoogle, setConGoogle] = useState(false);
+  useEffect(() => { cuenta.googleDisponible().then(setConGoogle); }, []);
   const poner = (k) => (v) => setCampos((c) => ({ ...c, [k]: v }));
+
+  async function google() {
+    setEstado({ cargando: true, error: '' });
+    try {
+      if (await cuenta.entrarConGoogle()) return nav.atras();
+      setEstado({ cargando: false, error: '' });
+    } catch (err) {
+      setEstado({ cargando: false, error: err.message });
+    }
+  }
 
   async function enviar() {
     setEstado({ cargando: true, error: '' });
@@ -71,6 +83,15 @@ export function Cuenta({ nav }) {
         <>
           <Text style={e.h1}>{registro ? 'Crear cuenta' : 'Iniciar sesión'}</Text>
           <Text style={{ color: c.texto2, lineHeight: 20 }}>Con una cuenta, tu lista y lo que estás viendo son privados y los tienes igual en la web, el móvil y la tele.</Text>
+          {conGoogle && (
+            <>
+              <Enfocable radio={999} onPress={google} disabled={estado.cargando} style={e.botonGoogle} hasTVPreferredFocus>
+                <Text style={e.botonGoogleG}>G</Text>
+                <Text style={e.botonGoogleTexto}>Continuar con Google</Text>
+              </Enfocable>
+              <Text style={{ color: c.texto3, textAlign: 'center', fontSize: 13 }}>— o con tu correo —</Text>
+            </>
+          )}
           {registro && <Entrada value={campos.nombre} onChangeText={poner('nombre')} placeholder="Tu nombre" placeholderTextColor={c.texto3} style={e.entrada} autoComplete="name" maxLength={40} />}
           <Entrada value={campos.email} onChangeText={poner('email')} placeholder="Correo electrónico" placeholderTextColor={c.texto3} style={e.entrada} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} autoComplete="email" />
           <Entrada value={campos.contrasena} onChangeText={poner('contrasena')} placeholder={registro ? 'Contraseña (mínimo 6 caracteres)' : 'Contraseña'} placeholderTextColor={c.texto3} style={e.entrada} secureTextEntry autoCapitalize="none" onSubmitEditing={enviar} />
@@ -415,6 +436,9 @@ export function Ficha({ nav, params }) {
 }
 
 const e = StyleSheet.create({
+  botonGoogle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 12, borderRadius: 999, backgroundColor: '#fff' },
+  botonGoogleG: { color: '#4285F4', fontSize: 18, fontWeight: '900' },
+  botonGoogleTexto: { color: '#1f1f1f', fontSize: 15, fontWeight: '700' },
   botonCuenta: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: c.acento, maxWidth: 170 },
   botonCuentaConectado: { backgroundColor: 'rgba(0,0,0,0.55)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)' },
   botonCuentaTexto: { color: '#fff', fontWeight: '700', fontSize: 13 },
