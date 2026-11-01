@@ -57,6 +57,33 @@ export const ajustes = {
   },
 };
 
+// Cuentas de los espectadores (contraseña cifrada y sus datos privados: lista, progreso…)
+export const usuarios = {
+  todos: () => (datos.usuarios ??= []),
+  obtener: (id) => usuarios.todos().find((u) => u.id === id),
+  porEmail: (email) => usuarios.todos().find((u) => u.email === email),
+  crear(u) {
+    const nuevo = { id: crypto.randomUUID(), creado: new Date().toISOString(), datos: {}, ...u };
+    usuarios.todos().push(nuevo);
+    guardar();
+    return nuevo;
+  },
+  actualizar(id, cambios) {
+    const u = usuarios.obtener(id);
+    if (!u) return null;
+    Object.assign(u, cambios);
+    guardar();
+    return u;
+  },
+  borrar(id) {
+    const i = usuarios.todos().findIndex((u) => u.id === id);
+    if (i === -1) return null;
+    const [u] = usuarios.todos().splice(i, 1);
+    guardar();
+    return u;
+  },
+};
+
 export const titulos = {
   todos: () => datos.titulos,
   obtener: (id) => datos.titulos.find((t) => t.id === id),

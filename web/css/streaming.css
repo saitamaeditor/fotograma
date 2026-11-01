@@ -172,3 +172,37 @@ h1, h2, h3 { font-weight: 800; letter-spacing: -0.02em; }
   .plataforma { grid-template-columns: auto 1fr; padding: 11px; gap: 10px; }
   .plataforma-total { display: none; }
 }
+
+/* Cuenta */
+.boton-cuenta { flex: none; padding: 7px 14px; border-radius: 4px; background: var(--acento); color: #fff; font-size: 14px; font-weight: 700; white-space: nowrap; max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
+.boton-cuenta.conectado { background: rgba(255, 255, 255, 0.12); }
+.cuenta-caja { max-width: 420px; margin: 0 auto; padding: 26px; background: #1a1a22; border: 1px solid #2a2a35; border-radius: 10px; }
+.cuenta .pagina-cab { max-width: 420px; margin-left: auto; margin-right: auto; }
+.cuenta-nombre { font-size: 22px; font-weight: 800; color: #fff; }
+.cuenta-pestanas { display: flex; gap: 6px; margin-bottom: 18px; }
+.cuenta-pestanas a { flex: 1; text-align: center; padding: 9px; border-radius: 6px; color: var(--texto-2); font-weight: 700; }
+.cuenta-pestanas a.activa { background: rgba(255, 255, 255, 0.1); color: #fff; }
+.cuenta-form { display: grid; gap: 10px; margin-top: 4px; }
+.cuenta-form h2 { font-size: 16px; margin-top: 20px; }
+.cuenta-form .entrada { width: 100%; padding: 12px 14px; border-radius: 6px; border: 1px solid #3a3a45; background: #111117; color: #fff; font-size: 15px; }
+.cuenta-form .entrada:focus { outline: 0; border-color: #fff; }
+.error-texto { color: var(--peligro, #ef5b5b); font-size: 14px; min-height: 1em; }
+.aviso-cuenta { margin: -10px 0 22px; padding: 12px 14px; border-radius: 6px; background: rgba(255, 255, 255, 0.06); color: var(--texto-2); font-size: 14px; }
+.aviso-cuenta a { color: #fff; font-weight: 700; text-decoration: underline; }
+@media (max-width: 760px) {
+  .boton-cuenta { padding: 7px 10px; font-size: 13px; max-width: 96px; }
+}
+
+.texto-2 { color: var(--texto-2); }
+
+/* Pantallas medianas: el menú tiene 6 secciones, así que se compacta para que quepa el botón de cuenta */
+@media (min-width: 761px) and (max-width: 1180px) {
+  .nav { gap: 13px; font-size: 13px; }
+  .buscador { width: 170px; }
+  .boton-cuenta { max-width: 100px; }
+}
+@media (min-width: 761px) and (max-width: 940px) {
+  .buscador { width: 42px; padding: 7px 12px; }
+  .buscador:focus-within { width: 170px; }
+  .cabecera-der { flex: none; }
+}

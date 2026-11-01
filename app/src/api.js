@@ -1,6 +1,7 @@
 // Cliente de la API de MorvehTV. La dirección sale de app.json (extra.apiUrl): https://morvehtv.es
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
+import { alEscribir } from './cuenta';
 
 const base = (Constants.expoConfig?.extra?.apiUrl ?? 'https://morvehtv.es').replace(/\/$/, '');
 
@@ -13,9 +14,13 @@ export async function api(ruta) {
   return datos;
 }
 
-// Mi lista y progreso guardados en el dispositivo
+// Mi lista y progreso: en el dispositivo y, con sesión iniciada, también en la cuenta
 async function leer(clave, def) {
   try { return JSON.parse(await AsyncStorage.getItem(clave)) ?? def; } catch { return def; }
+}
+async function guardar(clave, valor) {
+  await AsyncStorage.setItem(clave, JSON.stringify(valor));
+  alEscribir(clave, valor);
 }
 
 export const miLista = {
@@ -24,7 +29,7 @@ export const miLista = {
     const ids = await miLista.ids();
     const i = ids.indexOf(id);
     if (i === -1) ids.unshift(id); else ids.splice(i, 1);
-    await AsyncStorage.setItem('fg-lista', JSON.stringify(ids));
+    await guardar('fg-lista', ids);
     return i === -1;
   },
 };
@@ -34,7 +39,7 @@ export const progreso = {
   async guardar(id, datos) {
     const p = await progreso.todo();
     p[id] = { ...datos, fecha: Date.now() };
-    await AsyncStorage.setItem('fg-progreso', JSON.stringify(p));
+    await guardar('fg-progreso', p);
   },
 };
 
@@ -56,7 +61,7 @@ export const misPlataformas = {
     const guardadas = await leer(claveElegidas(tipo), null);
     return guardadas ?? plataformas[tipo].map((p) => p.id);
   },
-  guardar: (tipo, ids) => AsyncStorage.setItem(claveElegidas(tipo), JSON.stringify(ids)),
+  guardar: (tipo, ids) => guardar(claveElegidas(tipo), ids),
 };
 
 export function siguienteEpisodio(t, temporada, episodio) {

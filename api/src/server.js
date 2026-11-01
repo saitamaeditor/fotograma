@@ -4,9 +4,10 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as e2 from './e2.js';
 import * as tmdb from './tmdb.js';
-import { titulos, iniciar as iniciarDb } from './db.js';
+import { titulos, usuarios, iniciar as iniciarDb } from './db.js';
 import * as importador from './importador.js';
 import * as telegram from './telegram.js';
+import * as cuentas from './cuentas.js';
 import { deTipo, deTitulo, limpiar, detectar, carpeta, CATEGORIAS, TIPO_BASE, categoriaDe } from './plataformas.js';
 
 const { PORT = 4000, ADMIN_KEY = '', CORS_ORIGINS = '*' } = process.env;
@@ -14,6 +15,7 @@ const WEB = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'web');
 
 const app = express();
 app.disable('x-powered-by');
+app.set('trust proxy', 1); // Render va detrás de un proxy: así req.ip es la del espectador
 app.use(express.json({ limit: '2mb' }));
 
 // CORS para la web servida desde otro dominio y para la app móvil en desarrollo
@@ -22,7 +24,7 @@ app.use((req, res, next) => {
   const origen = req.headers.origin;
   if (origen && (origenes.includes('*') || origenes.includes(origen))) {
     res.setHeader('Access-Control-Allow-Origin', origenes.includes('*') ? '*' : origen);
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key, Authorization');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, PUT, DELETE, OPTIONS');
   }
   if (req.method === 'OPTIONS') return res.sendStatus(204);
@@ -293,7 +295,31 @@ admin.delete('/almacenamiento', asinc(async (req, res) => {
   res.json({ ok: true });
 }));
 
+// Usuarios registrados
+admin.get('/usuarios', (req, res) => res.json(cuentas.resumen()));
+admin.delete('/usuarios/:id', (req, res) => {
+  if (!usuarios.borrar(req.params.id)) return res.status(404).json({ error: 'No existe ese usuario' });
+  res.json({ ok: true });
+});
+
 app.use('/api/admin', admin);
+
+// ---------- Cuentas de los espectadores ----------
+// La sesión va en la cabecera «Authorization: Bearer <token>»
+const conCuenta = (req, res, next) => {
+  const u = cuentas.deToken(req.get('authorization')?.replace(/^Bearer\s+/i, ''));
+  if (!u) return res.status(401).json({ error: 'Inicia sesión de nuevo' });
+  req.usuario = u;
+  next();
+};
+app.post('/api/cuenta/registro', asinc(async (req, res) => res.status(201).json(await cuentas.registrar(req.body ?? {}, req.ip))));
+app.post('/api/cuenta/entrar', asinc(async (req, res) => res.json(await cuentas.entrar(req.body ?? {}, req.ip))));
+app.get('/api/cuenta', conCuenta, (req, res) => {
+  const { id, email, nombre, datos } = req.usuario;
+  res.set('Cache-Control', 'no-store').json({ usuario: { id, email, nombre }, datos: datos ?? {} });
+});
+app.put('/api/cuenta/datos', conCuenta, (req, res) => res.json({ datos: cuentas.guardarDatos(req.usuario, req.body?.claves) }));
+app.put('/api/cuenta/contrasena', conCuenta, asinc(async (req, res) => { await cuentas.cambiarContrasena(req.usuario, req.body ?? {}); res.json({ ok: true }); }));
 app.use('/api', (req, res) => res.status(404).json({ error: 'Ruta no encontrada' }));
 
 // ---------- Web ----------

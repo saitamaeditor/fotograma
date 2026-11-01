@@ -1,14 +1,17 @@
 import { api, esc, avisar, iconos } from './api.js';
+import * as cuenta from './cuenta.js';
 
 const vista = document.getElementById('vista');
 const cabecera = document.getElementById('cabecera');
 
-// ---------- Datos locales del espectador (mi lista y progreso) ----------
+// ---------- Datos del espectador (mi lista y progreso) ----------
+// Se guardan en el navegador y, si ha iniciado sesión, también en su cuenta
 function leer(clave, def) {
   try { return JSON.parse(localStorage.getItem(clave)) ?? def; } catch { return def; }
 }
 function escribir(clave, valor) {
   try { localStorage.setItem(clave, JSON.stringify(valor)); } catch { /* modo privado */ }
+  cuenta.alEscribir(clave, valor);
 }
 const miLista = {
   ids: () => leer('fg-lista', []),
@@ -250,6 +253,80 @@ async function verBusqueda() {
     </div>`;
 }
 
+// ---------- Cuenta: entrar, registrarse y cerrar sesión ----------
+function verCuenta() {
+  const u = cuenta.usuario();
+  if (u) {
+    vista.innerHTML = `
+      <div class="pagina cuenta">
+        <div class="pagina-cab"><h1>Mi cuenta</h1></div>
+        <div class="cuenta-caja">
+          <p class="cuenta-nombre">${esc(u.nombre)}</p>
+          <p class="texto-2">${esc(u.email)}</p>
+          <p class="texto-2" style="margin-top:12px">Tu lista, lo que estás viendo y tus plataformas elegidas se guardan en tu cuenta. Entra con el mismo correo en el móvil o la tele para tenerlo todo igual.</p>
+          <form id="form-contrasena" class="cuenta-form">
+            <h2>Cambiar contraseña</h2>
+            <input class="entrada" type="password" name="actual" placeholder="Contraseña actual" autocomplete="current-password" required />
+            <input class="entrada" type="password" name="nueva" placeholder="Contraseña nueva (mínimo 6)" autocomplete="new-password" minlength="6" required />
+            <button class="btn btn-secundario">Cambiar contraseña</button>
+          </form>
+          <button class="btn btn-peligro" id="salir" style="margin-top:22px">Cerrar sesión</button>
+        </div>
+      </div>`;
+    document.getElementById('salir').onclick = async () => {
+      await cuenta.salir();
+      avisar('Has cerrado sesión');
+      location.hash = '#/';
+    };
+    document.getElementById('form-contrasena').onsubmit = async (ev) => {
+      ev.preventDefault();
+      const f = new FormData(ev.currentTarget);
+      try {
+        await cuenta.cambiarContrasena(f.get('actual'), f.get('nueva'));
+        ev.currentTarget.reset();
+        avisar('Contraseña cambiada');
+      } catch (err) {
+        avisar(err.message, true);
+      }
+    };
+    return;
+  }
+
+  const registro = new URLSearchParams(location.hash.split('?')[1]).has('nueva');
+  vista.innerHTML = `
+    <div class="pagina cuenta">
+      <div class="cuenta-caja">
+        <div class="cuenta-pestanas">
+          <a href="#/cuenta" class="${registro ? '' : 'activa'}">Iniciar sesión</a>
+          <a href="#/cuenta?nueva" class="${registro ? 'activa' : ''}">Crear cuenta</a>
+        </div>
+        <form id="form-cuenta" class="cuenta-form">
+          ${registro ? '<input class="entrada" name="nombre" placeholder="Tu nombre" autocomplete="name" maxlength="40" />' : ''}
+          <input class="entrada" type="email" name="email" placeholder="Correo electrónico" autocomplete="email" required />
+          <input class="entrada" type="password" name="contrasena" placeholder="${registro ? 'Contraseña (mínimo 6 caracteres)' : 'Contraseña'}" autocomplete="${registro ? 'new-password' : 'current-password'}" ${registro ? 'minlength="6"' : ''} required />
+          <button class="btn btn-primario">${registro ? 'Crear cuenta' : 'Entrar'}</button>
+          <p class="error-texto" id="cuenta-error"></p>
+        </form>
+        <p class="texto-2" style="margin-top:14px">Con una cuenta, tu lista y lo que estás viendo son privados y los tienes igual en la web, el móvil y la tele.</p>
+      </div>
+    </div>`;
+  document.getElementById('form-cuenta').onsubmit = async (ev) => {
+    ev.preventDefault();
+    const f = new FormData(ev.currentTarget);
+    const boton = ev.currentTarget.querySelector('button');
+    boton.disabled = true;
+    try {
+      if (registro) await cuenta.registrar(f.get('nombre'), f.get('email'), f.get('contrasena'));
+      else await cuenta.entrar(f.get('email'), f.get('contrasena'));
+      avisar(`Hola, ${cuenta.usuario().nombre}`);
+      location.hash = '#/';
+    } catch (err) {
+      document.getElementById('cuenta-error').textContent = err.message;
+      boton.disabled = false;
+    }
+  };
+}
+
 async function verMiLista() {
   const ids = miLista.ids();
   const todos = ids.length ? await api('/titulos') : [];
@@ -257,6 +334,7 @@ async function verMiLista() {
   vista.innerHTML = `
     <div class="pagina">
       <div class="pagina-cab"><h1>Mi lista</h1></div>
+      ${cuenta.usuario() ? '' : `<p class="aviso-cuenta">Tu lista solo está guardada en este navegador. <a href="#/cuenta">Inicia sesión o crea una cuenta</a> para tenerla también en el móvil y la tele.</p>`}
       ${lista.length ? `<div class="rejilla">${lista.map((t) => tarjeta(t, { vertical: true })).join('')}</div>` : vacio('Tu lista está vacía', 'Pulsa «Mi lista» en cualquier título para guardarlo aquí.')}
     </div>`;
 }
@@ -413,6 +491,7 @@ const rutas = [
   [/^#\/docuseries/, verDocuseries, 'docuseries'],
   [/^#\/buscar/, verBusqueda, 'buscar'],
   [/^#\/mi-lista/, verMiLista, 'mi-lista'],
+  [/^#\/cuenta/, verCuenta, 'cuenta'],
   [/^#\/titulo\/([\w-]+)/, verTitulo, 'titulo'],
   [/^#\/ver\/([\w-]+)/, verReproductor, 'ver'],
 ];
@@ -461,6 +540,20 @@ document.querySelector('#buscador input').addEventListener('input', (ev) => {
 window.addEventListener('scroll', () => cabecera.classList.toggle('solida', window.scrollY > 40), { passive: true });
 window.addEventListener('hashchange', enrutar);
 enrutar();
+
+// Botón de la cabecera: «Entrar» o el nombre del usuario
+const botonCuenta = document.getElementById('boton-cuenta');
+const pintarBotonCuenta = (u) => {
+  botonCuenta.textContent = u ? u.nombre : 'Entrar';
+  botonCuenta.classList.toggle('conectado', Boolean(u));
+};
+pintarBotonCuenta(cuenta.usuario());
+cuenta.alCambiar(pintarBotonCuenta);
+// Trae lo último de la cuenta (por si se cambió en otro dispositivo) y repinta
+cuenta.refrescar().then((ok) => {
+  const nombre = (rutas.find(([re]) => re.test(location.hash || '#/')) ?? rutas[0])[2];
+  if (ok && ['inicio', 'peliculas', 'series', 'mi-lista'].includes(nombre)) enrutar();
+});
 
 // ---------- Contenido nuevo en tiempo real ----------
 // Cada 30 s pregunta a la API si el catálogo ha cambiado. Si sí, repinta la vista actual

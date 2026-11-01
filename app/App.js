@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { View, Text, BackHandler, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Inicio, Explorar, Series, Documentales, Docuseries, MiLista, Ficha } from './src/pantallas';
+import { Inicio, Explorar, Series, Documentales, Docuseries, MiLista, Ficha, Cuenta } from './src/pantallas';
+import * as cuenta from './src/cuenta';
 import { Reproductor } from './src/Reproductor';
 import { Enfocable } from './src/componentes';
 import { Intro } from './src/Intro';
@@ -16,7 +17,7 @@ const PESTANAS = [
   ['docuseries', 'Docuseries', '▦', Docuseries],
   ['lista', 'Mi lista', '♡', MiLista],
 ];
-const PANTALLAS = { ficha: Ficha, reproductor: Reproductor };
+const PANTALLAS = { ficha: Ficha, reproductor: Reproductor, cuenta: Cuenta };
 
 // Navegación mínima: una pestaña activa y una pila de pantallas encima.
 function Navegador() {
@@ -71,6 +72,8 @@ function Navegador() {
 // La app carga por debajo mientras se ve la intro
 export default function App() {
   const [intro, setIntro] = useState(true);
+  // Recupera la sesión y trae lo último de la cuenta mientras se ve la intro
+  useEffect(() => { cuenta.iniciar(); }, []);
   return (
     <SafeAreaProvider>
       <View style={e.raiz}>

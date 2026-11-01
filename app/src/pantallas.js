@@ -5,6 +5,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api, miLista, progreso, siguienteEpisodio, urlApi, cargarPlataformas, misPlataformas } from './api';
 import { Fila, Tarjeta, Boton, Cargando, Vacio, SelectorPlataformas, EtiquetasPlataforma, Enfocable, Entrada } from './componentes';
+import * as cuenta from './cuenta';
 import { c } from './tema';
 
 function useDatos(cargar, deps = []) {
@@ -16,6 +17,74 @@ function useDatos(cargar, deps = []) {
   }, deps);
   useEffect(() => { recargar(); }, [recargar]);
   return { ...estado, recargar };
+}
+
+// Usuario con sesión (o null); se actualiza al entrar o salir
+function useUsuario() {
+  const [u, setU] = useState(cuenta.usuario());
+  useEffect(() => cuenta.alCambiar(setU), []);
+  return u;
+}
+
+// Botón «Entrar» o el nombre del usuario: abre la pantalla de cuenta
+function BotonCuenta({ nav, style }) {
+  const u = useUsuario();
+  return (
+    <Enfocable radio={999} onPress={() => nav.ir('cuenta')} style={[e.botonCuenta, u && e.botonCuentaConectado, style]}>
+      <Text style={e.botonCuentaTexto} numberOfLines={1}>{u ? `👤 ${u.nombre}` : 'Entrar'}</Text>
+    </Enfocable>
+  );
+}
+
+// ---------- Cuenta ----------
+export function Cuenta({ nav }) {
+  const ins = useSafeAreaInsets();
+  const u = useUsuario();
+  const [registro, setRegistro] = useState(false);
+  const [campos, setCampos] = useState({ nombre: '', email: '', contrasena: '' });
+  const [estado, setEstado] = useState({ cargando: false, error: '' });
+  const poner = (k) => (v) => setCampos((c) => ({ ...c, [k]: v }));
+
+  async function enviar() {
+    setEstado({ cargando: true, error: '' });
+    try {
+      if (registro) await cuenta.registrar(campos.nombre, campos.email, campos.contrasena);
+      else await cuenta.entrar(campos.email, campos.contrasena);
+      nav.atras();
+    } catch (err) {
+      setEstado({ cargando: false, error: err.message });
+    }
+  }
+
+  return (
+    <ScrollView contentContainerStyle={{ padding: 20, paddingTop: ins.top + 16, gap: 14 }} keyboardShouldPersistTaps="handled">
+      <Enfocable radio={19} onPress={nav.atras} style={e.atrasCuenta}><Text style={{ color: c.texto, fontSize: 22 }}>‹</Text></Enfocable>
+      {u ? (
+        <>
+          <Text style={e.h1}>Mi cuenta</Text>
+          <Text style={{ color: c.texto, fontSize: 20, fontWeight: '800' }}>{u.nombre}</Text>
+          <Text style={{ color: c.texto2 }}>{u.email}</Text>
+          <Text style={{ color: c.texto2, lineHeight: 20 }}>Tu lista, lo que estás viendo y tus plataformas elegidas se guardan en tu cuenta. Entra con el mismo correo en la web, el móvil o la tele para tenerlo todo igual.</Text>
+          <Boton texto="Cerrar sesión" tipo="secundario" onPress={async () => { await cuenta.salir(); nav.atras(); }} style={{ alignSelf: 'flex-start', marginTop: 10 }} />
+        </>
+      ) : (
+        <>
+          <Text style={e.h1}>{registro ? 'Crear cuenta' : 'Iniciar sesión'}</Text>
+          <Text style={{ color: c.texto2, lineHeight: 20 }}>Con una cuenta, tu lista y lo que estás viendo son privados y los tienes igual en la web, el móvil y la tele.</Text>
+          {registro && <Entrada value={campos.nombre} onChangeText={poner('nombre')} placeholder="Tu nombre" placeholderTextColor={c.texto3} style={e.entrada} autoComplete="name" maxLength={40} />}
+          <Entrada value={campos.email} onChangeText={poner('email')} placeholder="Correo electrónico" placeholderTextColor={c.texto3} style={e.entrada} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} autoComplete="email" />
+          <Entrada value={campos.contrasena} onChangeText={poner('contrasena')} placeholder={registro ? 'Contraseña (mínimo 6 caracteres)' : 'Contraseña'} placeholderTextColor={c.texto3} style={e.entrada} secureTextEntry autoCapitalize="none" onSubmitEditing={enviar} />
+          {estado.error ? <Text style={{ color: c.peligro }}>{estado.error}</Text> : null}
+          <Boton texto={estado.cargando ? 'Un momento…' : registro ? 'Crear cuenta' : 'Entrar'} onPress={enviar} disabled={estado.cargando} />
+          <Boton
+            texto={registro ? '¿Ya tienes cuenta? Inicia sesión' : '¿No tienes cuenta? Créala gratis'}
+            tipo="secundario"
+            onPress={() => { setRegistro(!registro); setEstado({ cargando: false, error: '' }); }}
+          />
+        </>
+      )}
+    </ScrollView>
+  );
 }
 
 function ErrorConexion({ error, recargar, nav }) {
@@ -73,6 +142,7 @@ function Portada({ nav, tipo }) {
   const nada = unidad;
 
   return (
+    <View style={{ flex: 1 }}>
     <ScrollView refreshControl={<RefreshControl refreshing={cargando} onRefresh={recargar} tintColor={c.acento} />}>
       {destacado ? (
         <View style={{ height: Math.min(height * 0.62, 560), justifyContent: 'flex-end' }}>
@@ -108,6 +178,8 @@ function Portada({ nav, tipo }) {
             />}
       </View>
     </ScrollView>
+    <BotonCuenta nav={nav} style={{ position: 'absolute', top: ins.top + 10, right: 14 }} />
+    </View>
   );
 }
 
@@ -210,6 +282,19 @@ export function Explorar({ nav }) {
 }
 
 // ---------- Mi lista ----------
+function CabeceraMiLista({ nav }) {
+  const u = useUsuario();
+  return (
+    <View style={{ gap: 10 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Text style={e.h1}>Mi lista</Text>
+        <BotonCuenta nav={nav} />
+      </View>
+      {!u && <Text style={{ color: c.texto2, fontSize: 13 }}>Tu lista solo está en este dispositivo. Entra o crea una cuenta para tenerla también en la web y la tele.</Text>}
+    </View>
+  );
+}
+
 export function MiLista({ nav }) {
   const ins = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -229,7 +314,7 @@ export function MiLista({ nav }) {
       keyExtractor={(t) => t.id}
       columnWrapperStyle={{ gap: 10 }}
       contentContainerStyle={{ paddingHorizontal: 16, gap: 16, paddingTop: ins.top + 16, paddingBottom: 30 }}
-      ListHeaderComponent={<Text style={e.h1}>Mi lista</Text>}
+      ListHeaderComponent={<CabeceraMiLista nav={nav} />}
       renderItem={({ item }) => <Tarjeta t={item} ancho={ancho} onPress={(t) => nav.ir('ficha', { id: t.id })} />}
       ListEmptyComponent={<Vacio titulo="Tu lista está vacía" texto="Guarda títulos desde su ficha." />}
     />
@@ -330,6 +415,10 @@ export function Ficha({ nav, params }) {
 }
 
 const e = StyleSheet.create({
+  botonCuenta: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: c.acento, maxWidth: 170 },
+  botonCuentaConectado: { backgroundColor: 'rgba(0,0,0,0.55)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)' },
+  botonCuentaTexto: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  atrasCuenta: { width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
   degradado: {
     position: 'absolute', left: 0, right: 0, bottom: 0, height: '70%',
     experimental_backgroundImage: `linear-gradient(to top, ${c.fondo}, rgba(11,11,15,0))`,
