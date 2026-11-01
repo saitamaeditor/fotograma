@@ -100,3 +100,13 @@ Administración (cabecera `x-api-key: ADMIN_KEY`):
 - **Mi lista y Seguir viendo** se guardan en cada navegador/dispositivo. Para sincronizarlos entre dispositivos haría falta añadir cuentas de usuario.
 - La reproducción es pública para quien tenga acceso a la web. Si quieres que solo entren usuarios registrados, hay que añadir login delante de `/api/titulos/:id/reproducir`.
 - Solo sube contenido del que tengas los derechos.
+
+## Publicar cambios en morvehtv.es
+
+Haz doble clic en **`Publicar.bat`** (en la carpeta del proyecto). Sube a GitHub todo lo que hayas cambiado, ordena a Render que despliegue y te avisa cuando ya está en línea (en torno a 1 minuto).
+
+También desde la terminal: `node scripts/publicar.mjs` (después de hacer tus commits).
+
+Necesita el archivo `.deploy-hook` con la URL del Deploy Hook de Render (Render → servicio → Settings → Deploy Hook). No se sube al repositorio. Sin él, basta con hacer `git push`: Render publica solo, aunque tarda unos minutos más.
+
+La app móvil no se publica así: cada versión nueva es un APK que se genera con `npx eas-cli build -p android --profile apk` desde la carpeta `app`.
