@@ -286,3 +286,8 @@ h1, h2, h3 { font-weight: 800; letter-spacing: -0.02em; }
 @media (min-width: 1181px) and (max-width: 1420px) { .nav { gap: 14px; font-size: 13.5px; } .buscador { width: 190px; } }
 a.fila-total { color: var(--texto-2); white-space: nowrap; }
 a.fila-total:hover { color: #fff; }
+
+/* Filas de Inicio con el póster de cada título (en vez de una imagen de escena) */
+.carrusel.posters { grid-auto-columns: clamp(130px, calc((100vw - 2 * var(--lado)) / 7.2), 210px); gap: 12px; }
+.carrusel.posters .tarjeta-img { aspect-ratio: 2 / 3; }
+@media (max-width: 760px) { .carrusel.posters { grid-auto-columns: 36vw; } }

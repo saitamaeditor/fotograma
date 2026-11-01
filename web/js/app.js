@@ -94,7 +94,7 @@ function fila(titulo, items, tipo = 'pelicula') {
       </div>
       <div class="fila-pista">
         <button class="flecha izq" aria-label="Anterior">${iconos.izq}</button>
-        <div class="carrusel">${items.map((t) => tarjeta(t)).join('')}</div>
+        <div class="carrusel posters">${items.map((t) => tarjeta(t, { vertical: true })).join('')}</div>
         <button class="flecha der" aria-label="Siguiente">${iconos.der}</button>
       </div>
     </section>`;
