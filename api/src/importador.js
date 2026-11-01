@@ -12,6 +12,7 @@ import * as tmdb from './tmdb.js';
 import { titulos } from './db.js';
 import { detectar, carpeta, esDocumental, carpetaDocumental, conDocumental } from './plataformas.js';
 import * as telegram from './telegram.js';
+import { anotar } from './registro.js';
 
 // Por defecto solo escanea el servidor publicado en Render (que define RENDER); en tu PC está
 // apagado para que dos servidores no den de alta lo mismo a la vez
@@ -144,6 +145,8 @@ export function escanear({ manual = false } = {}) {
     ultimo = { fecha: new Date().toISOString(), nuevos, errores };
     // Aviso en Telegram de lo que ya se puede ver (si está configurado en el panel)
     telegram.avisar(nuevos).catch((err) => console.error('Telegram:', err.message));
+    for (const n of nuevos) anotar('importado', `Importado del bucket: ${n.titulo}`);
+    for (const e of errores) if (e.key) anotar('error', `No se pudo importar ${e.key}: ${e.error}`);
     if (nuevos.length || errores.length) {
       console.log(`Importador: ${nuevos.length} nuevos, ${errores.length} con error`);
       for (const e of errores) console.log(`  ✗ ${e.key}: ${e.error}`);

@@ -8,6 +8,7 @@ import { titulos, usuarios, ajustes, exportar, iniciar as iniciarDb } from './db
 import * as importador from './importador.js';
 import * as telegram from './telegram.js';
 import * as cuentas from './cuentas.js';
+import * as registro from './registro.js';
 import { deTipo, deTitulo, limpiar, detectar, carpeta, CATEGORIAS, TIPO_BASE, categoriaDe, esDocumental, carpetaDocumental, conDocumental } from './plataformas.js';
 
 const { PORT = 4000, ADMIN_KEY = '', CORS_ORIGINS = '*' } = process.env;
@@ -157,6 +158,7 @@ app.get('/api/titulos/:id/reproducir', asinc(async (req, res) => {
   if (!t) return res.status(404).json({ error: 'No existe ese título' });
   const key = buscarVideo(t, req.query.t, req.query.e);
   if (!key) return res.status(404).json({ error: 'Este contenido todavía no tiene vídeo' });
+  registro.reproduccion(t.id);
   res.json({ url: await e2.urlReproduccion(key) });
 }));
 
@@ -222,6 +224,16 @@ admin.get('/resumen', asinc(async (req, res) => {
       enListas: veces('fg-lista'),
       masVistos: veces('fg-progreso'),
     },
+    reproducciones: (() => {
+      const r = registro.resumen();
+      return {
+        dias: r.dias,
+        total30: r.total30,
+        hoy: r.hoy,
+        top: r.porTitulo.slice(0, 5).map(([id, total]) => ({ id, titulo: titulos.obtener(id)?.titulo, total })).filter((x) => x.titulo),
+      };
+    })(),
+    actividad: registro.resumen().actividad,
     servicios: {
       e2: e2.configurado,
       tmdb: tmdb.configurado,
@@ -244,6 +256,7 @@ admin.put('/aviso', (req, res) => {
     fecha: new Date().toISOString(),
   };
   ajustes.guardar('aviso', aviso);
+  registro.anotar('aviso', aviso.activo ? `Aviso en la web: «${aviso.texto}»` : 'Aviso de la web quitado');
   res.json(aviso);
 });
 
@@ -265,10 +278,14 @@ admin.post('/titulos', asinc(async (req, res) => {
     if (!manual.titulo) return res.status(400).json({ error: 'Falta el título' });
     const base = { tipo, generos: [], reparto: [], ...manual };
     if (tipo === 'serie') base.temporadas = manual.temporadas ?? [{ numero: 1, nombre: 'Temporada 1', episodios: [] }];
-    return res.status(201).json(titulos.crear(base));
+    const nuevo = titulos.crear(base);
+    registro.anotar('titulo', `Añadido a mano: ${nuevo.titulo}`);
+    return res.status(201).json(nuevo);
   }
   if (titulos.porTmdb(Number(tmdbId), tipo)) return res.status(409).json({ error: 'Ese título ya está en el catálogo' });
-  res.status(201).json(titulos.crear(await tmdb.ficha(Number(tmdbId), tipo)));
+  const nuevo = titulos.crear(await tmdb.ficha(Number(tmdbId), tipo));
+  registro.anotar('titulo', `Añadido desde TMDB: ${nuevo.titulo}`);
+  res.status(201).json(nuevo);
 }));
 
 admin.patch('/titulos/:id', (req, res) => {
@@ -278,6 +295,23 @@ admin.patch('/titulos/:id', (req, res) => {
   if (!t) return res.status(404).json({ error: 'No existe ese título' });
   res.json(t);
 });
+
+// Acciones sobre varios títulos a la vez: destacar, quitar de destacados o borrar
+admin.post('/titulos/lote', asinc(async (req, res) => {
+  const { ids = [], accion } = req.body ?? {};
+  const lista = ids.map((id) => titulos.obtener(id)).filter(Boolean);
+  if (!lista.length) return res.status(400).json({ error: 'No has elegido ningún título' });
+  if (accion === 'destacar' || accion === 'quitar-destacado') {
+    for (const t of lista) titulos.actualizar(t.id, { destacado: accion === 'destacar' });
+  } else if (accion === 'borrar') {
+    for (const t of lista) titulos.borrar(t.id);
+  } else {
+    return res.status(400).json({ error: 'Acción desconocida' });
+  }
+  const verbo = { destacar: 'Destacados', 'quitar-destacado': 'Quitados de destacados', borrar: 'Borrados' }[accion];
+  registro.anotar('titulo', `${verbo} ${lista.length}: ${lista.map((t) => t.titulo).join(', ')}`);
+  res.json({ ok: true, total: lista.length });
+}));
 
 // Vuelve a pedir los datos a TMDB conservando los vídeos ya enlazados
 admin.post('/titulos/:id/refrescar', asinc(async (req, res) => {
@@ -295,6 +329,7 @@ admin.post('/titulos/:id/refrescar', asinc(async (req, res) => {
 admin.delete('/titulos/:id', asinc(async (req, res) => {
   const t = titulos.borrar(req.params.id);
   if (!t) return res.status(404).json({ error: 'No existe ese título' });
+  registro.anotar('titulo', `Borrado: ${t.titulo}${req.query.borrarVideos === '1' ? ' (con sus vídeos)' : ''}`);
   if (req.query.borrarVideos === '1' && e2.configurado) {
     const keys = t.tipo === 'pelicula' ? [t.videoKey] : (t.temporadas ?? []).flatMap((s) => s.episodios.map((e) => e.videoKey));
     await Promise.all(keys.filter(Boolean).map((k) => e2.borrar(k)));
@@ -394,9 +429,17 @@ admin.delete('/almacenamiento', asinc(async (req, res) => {
 
 // Usuarios registrados
 admin.get('/usuarios', (req, res) => res.json(cuentas.resumen()));
-admin.post('/usuarios/:id/contrasena', asinc(async (req, res) => res.json(await cuentas.restablecer(req.params.id))));
+admin.post('/usuarios/:id/contrasena', asinc(async (req, res) => {
+  const r = await cuentas.restablecer(req.params.id);
+  registro.anotar('usuario', `Contraseña provisional para ${r.email}`);
+  res.json(r);
+}));
+admin.get('/usuarios/:id', (req, res) => res.json(cuentas.detalle(req.params.id)));
+admin.patch('/usuarios/:id', (req, res) => res.json(cuentas.suspender(req.params.id, Boolean(req.body?.suspendido))));
 admin.delete('/usuarios/:id', (req, res) => {
-  if (!usuarios.borrar(req.params.id)) return res.status(404).json({ error: 'No existe ese usuario' });
+  const u = usuarios.borrar(req.params.id);
+  if (!u) return res.status(404).json({ error: 'No existe ese usuario' });
+  registro.anotar('usuario', `Cuenta borrada: ${u.email}`);
   res.json({ ok: true });
 });
 

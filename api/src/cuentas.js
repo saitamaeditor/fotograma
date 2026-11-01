@@ -3,7 +3,8 @@
 // web, el móvil y la tele. Las sesiones son tokens firmados que caducan a los 180 días.
 import { scrypt, randomBytes, randomUUID, timingSafeEqual, createHmac, createHash } from 'node:crypto';
 import { promisify } from 'node:util';
-import { usuarios } from './db.js';
+import { usuarios, titulos } from './db.js';
+import { anotar } from './registro.js';
 
 const cifrar = promisify(scrypt);
 const DIAS = 180;
@@ -55,7 +56,7 @@ export function deToken(token) {
   const [id, sid, caduca] = partes.length === 3 ? partes : [partes[0], null, partes[1]];
   if (Number(caduca) < Date.now()) return null;
   const u = usuarios.obtener(id);
-  if (!u) return null;
+  if (!u || u.suspendido) return null;
   if (!sid) return { usuario: u, sesion: null };
   const s = (u.sesiones ?? []).find((x) => x.id === sid);
   if (!s) return null; // sesión cerrada desde otro dispositivo
@@ -101,6 +102,7 @@ export async function registrar({ email, contrasena, nombre, dispositivo }, ip) 
   if (String(contrasena ?? '').length < 6) throw error(400, 'La contraseña debe tener al menos 6 caracteres');
   if (usuarios.porEmail(email)) throw error(409, 'Ya hay una cuenta con ese correo. Inicia sesión.');
   const u = usuarios.crear({ email, nombre: nombre || email.split('@')[0], contrasena: await hashear(contrasena) });
+  anotar('usuario', `Nueva cuenta: ${u.nombre} (${u.email})`);
   return respuesta(u, dispositivo);
 }
 
@@ -111,6 +113,7 @@ export async function entrar({ email, contrasena, dispositivo }, ip) {
     fallo();
     throw error(401, 'Correo o contraseña incorrectos');
   }
+  if (u.suspendido) throw error(403, 'Esta cuenta está suspendida. Escríbenos por Telegram si crees que es un error.');
   usuarios.actualizar(u.id, { ultimo: new Date().toISOString() });
   return respuesta(u, dispositivo);
 }
@@ -177,6 +180,37 @@ export async function cambiarContrasena(u, { actual, nueva }) {
   usuarios.actualizar(u.id, { contrasena: await hashear(nueva) });
 }
 
+// Suspender impide entrar y cierra todas sus sesiones; reactivar la deja como estaba
+export function suspender(id, suspendido) {
+  const u = usuarios.obtener(id);
+  if (!u) throw error(404, 'No existe ese usuario');
+  usuarios.actualizar(id, suspendido ? { suspendido: true, sesiones: [] } : { suspendido: false });
+  anotar('usuario', `${suspendido ? 'Cuenta suspendida' : 'Cuenta reactivada'}: ${u.email}`);
+  return { ok: true };
+}
+
+// Ficha de un usuario para el panel: dispositivos, su lista y lo que está viendo
+export function detalle(id) {
+  const u = usuarios.obtener(id);
+  if (!u) throw error(404, 'No existe ese usuario');
+  const nombreDe = (tid) => titulos.obtener(tid)?.titulo ?? '(título borrado)';
+  return {
+    ...publico(u),
+    ultimo: u.ultimo ?? null,
+    suspendido: Boolean(u.suspendido),
+    sesiones: (u.sesiones ?? []).map(({ dispositivo, creado, ultimo }) => ({ dispositivo, creado, ultimo })),
+    lista: (u.datos?.['fg-lista'] ?? []).map((tid) => ({ id: tid, titulo: nombreDe(tid) })),
+    viendo: Object.entries(u.datos?.['fg-progreso'] ?? {})
+      .sort((a, b) => (b[1].fecha ?? 0) - (a[1].fecha ?? 0))
+      .map(([tid, p]) => ({
+        id: tid,
+        titulo: nombreDe(tid) + (p.t ? ` T${p.t}:E${p.e}` : ''),
+        porcentaje: p.duracion ? Math.round((p.segundo / p.duracion) * 100) : null,
+        fecha: p.fecha ?? null,
+      })),
+  };
+}
+
 // Resumen para el panel de administración (sin contraseñas ni datos privados)
 export const resumen = () => usuarios.todos().map((u) => ({
   ...publico(u),
@@ -185,4 +219,5 @@ export const resumen = () => usuarios.todos().map((u) => ({
   enLista: u.datos?.['fg-lista']?.length ?? 0,
   vistos: Object.keys(u.datos?.['fg-progreso'] ?? {}).length,
   dispositivos: (u.sesiones ?? []).length,
+  suspendido: Boolean(u.suspendido),
 }));
