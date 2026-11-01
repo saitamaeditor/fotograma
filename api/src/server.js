@@ -252,6 +252,8 @@ admin.put('/titulos/:id/video', asinc(async (req, res) => {
 admin.get('/telegram', (req, res) => res.json(telegram.estado()));
 admin.put('/telegram', asinc(async (req, res) => res.json(await telegram.configurar(req.body ?? {}))));
 admin.get('/telegram/grupos', asinc(async (req, res) => res.json(await telegram.buscarGrupos())));
+admin.get('/telegram/temas', asinc(async (req, res) => res.json(await telegram.buscarTemas())));
+admin.post('/telegram/temas', asinc(async (req, res) => res.json(await telegram.crearTemas())));
 admin.post('/telegram/prueba', asinc(async (req, res) => { await telegram.probar(); res.json({ ok: true }); }));
 
 // Subida multiparte: el navegador sube los trozos directamente a e2 con URLs firmadas

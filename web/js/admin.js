@@ -481,8 +481,16 @@ async function verAnadir() {
 
 // ---------- Almacenamiento ----------
 // ---------- Notificaciones en Telegram ----------
+let temasVistos = []; // temas encontrados con «Buscar temas»
+
 async function verNotificaciones() {
   const t = await api('/admin/telegram');
+  // Opciones de los desplegables de temas: General + los guardados + los encontrados
+  const opcionesTema = (elegido) => {
+    const lista = new Map(temasVistos.map((x) => [x.id, x]));
+    for (const x of Object.values(t.temas)) if (x) lista.set(x.id, x);
+    return ['<option value="">General</option>', ...[...lista.values()].map((x) => `<option value="${esc(x.id)}" ${elegido?.id === x.id ? 'selected' : ''}>${esc(x.nombre)}</option>`)].join('');
+  };
   const fecha = (f) => new Date(f).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' });
   contenido.innerHTML = `
     <div class="contenido-cab">
@@ -525,8 +533,23 @@ async function verNotificaciones() {
       </details>
     </div>
 
+    ${t.chatId ? `
     <div class="caja">
-      <h2>3. Avisos</h2>
+      <h2>3. Temas del grupo ${t.esForo ? '' : '<span class="texto-3" style="font-size:13px;font-weight:400">(solo si tu grupo tiene temas)</span>'}</h2>
+      <p class="texto-2" style="margin-bottom:12px">Elige en qué tema se publica cada sección. «General» es el tema principal del grupo.</p>
+      <div class="fila-form" id="temas">
+        <label class="campo"><span>🎬 Películas nuevas</span><select name="pelicula">${opcionesTema(t.temas.pelicula)}</select></label>
+        <label class="campo"><span>📺 Series nuevas</span><select name="serie">${opcionesTema(t.temas.serie)}</select></label>
+      </div>
+      <div class="fila-form" style="margin-top:12px">
+        <button class="btn btn-secundario" id="buscar-temas">Buscar temas</button>
+        <button class="btn btn-secundario" id="crear-temas">Crear «🎬 Películas» y «📺 Series»</button>
+      </div>
+      <p class="texto-3" style="margin-top:10px">Para que un tema aparezca en la lista, escribe un mensaje dentro de él y pulsa <b>Buscar temas</b>. Para crearlos automáticamente, el bot tiene que ser administrador con permiso para <b>gestionar temas</b>.</p>
+    </div>` : ''}
+
+    <div class="caja">
+      <h2>${t.chatId ? '4' : '3'}. Avisos</h2>
       <label class="casilla" style="margin-bottom:14px"><input type="checkbox" id="activo" ${t.activo ? 'checked' : ''} ${t.configurado ? '' : 'disabled'} /> Avisar en Telegram de cada contenido nuevo</label>
       <div class="fila-form"><button class="btn btn-primario" id="prueba" ${t.configurado ? '' : 'disabled'}>Enviar mensaje de prueba</button></div>
       <h3 style="margin:18px 0 8px;font-size:15px">Últimos avisos</h3>
@@ -561,11 +584,11 @@ async function verNotificaciones() {
     try {
       const grupos = await api('/admin/telegram/grupos');
       caja.innerHTML = grupos.length
-        ? grupos.map((g) => `<div class="fila-form" style="align-items:center;margin-bottom:6px"><span><b>${esc(g.nombre)}</b> <span class="texto-3">${esc(g.tipo)} · ${esc(g.id)}</span></span><button class="btn btn-primario btn-chico" data-id="${esc(g.id)}" data-nombre="${esc(g.nombre)}">Usar este</button></div>`).join('')
+        ? grupos.map((g) => `<div class="fila-form" style="align-items:center;margin-bottom:6px"><span><b>${esc(g.nombre)}</b> <span class="texto-3">${g.esForo ? 'con temas' : esc(g.tipo)} · ${esc(g.id)}</span></span><button class="btn btn-primario btn-chico" data-id="${esc(g.id)}" data-nombre="${esc(g.nombre)}" data-foro="${g.esForo ? 1 : ''}">Usar este</button></div>`).join('')
         : '<p class="texto-3">No aparece ningún grupo. Comprueba que el bot está en el grupo, escribe un mensaje allí y vuelve a buscar.</p>';
       caja.onclick = (e) => {
         const b = e.target.closest('[data-id]');
-        if (b) guardar({ chatId: b.dataset.id, chatNombre: b.dataset.nombre }, `Avisos irán a «${b.dataset.nombre}»`);
+        if (b) { temasVistos = []; guardar({ chatId: b.dataset.id, chatNombre: b.dataset.nombre, esForo: Boolean(b.dataset.foro) }, `Avisos irán a «${b.dataset.nombre}»`); }
       };
     } catch (err) {
       avisar(err.message, true);
@@ -573,11 +596,43 @@ async function verNotificaciones() {
       ev.currentTarget.disabled = false;
     }
   };
+  const temas = document.getElementById('temas');
+  if (temas) {
+    temas.onchange = (ev) => {
+      const sel = ev.target;
+      const tema = sel.value ? { id: sel.value, nombre: sel.selectedOptions[0].textContent } : null;
+      guardar({ temas: { [sel.name]: tema } }, `${sel.name === 'serie' ? 'Series' : 'Películas'} → ${tema?.nombre ?? 'General'}`);
+    };
+    document.getElementById('buscar-temas').onclick = async (ev) => {
+      ev.currentTarget.disabled = true;
+      try {
+        temasVistos = await api('/admin/telegram/temas');
+        avisar(temasVistos.length ? `${temasVistos.length} temas encontrados: elígelos en los desplegables` : 'No aparece ningún tema: escribe un mensaje dentro de cada tema y vuelve a buscar');
+        verNotificaciones();
+      } catch (err) {
+        avisar(err.message, true);
+        ev.currentTarget.disabled = false;
+      }
+    };
+    document.getElementById('crear-temas').onclick = async (ev) => {
+      if (!confirm('¿Crear los temas «🎬 Películas» y «📺 Series» en el grupo?')) return;
+      ev.currentTarget.disabled = true;
+      try {
+        await api('/admin/telegram/temas', { metodo: 'POST' });
+        avisar('Temas creados: las películas y las series irán cada una a su tema');
+        verNotificaciones();
+      } catch (err) {
+        avisar(err.message, true);
+        ev.currentTarget.disabled = false;
+      }
+    };
+  }
+
   document.getElementById('prueba').onclick = async (ev) => {
     ev.currentTarget.disabled = true;
     try {
       await api('/admin/telegram/prueba', { metodo: 'POST' });
-      avisar('Mensaje de prueba enviado: míralo en el grupo');
+      avisar('Mensajes de prueba enviados: míralos en el grupo');
     } catch (err) {
       avisar(err.message, true);
     } finally {
