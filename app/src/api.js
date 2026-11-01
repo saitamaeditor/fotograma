@@ -1,22 +1,10 @@
-// Cliente de la API de Fotograma. La URL por defecto sale de app.json (extra.apiUrl) y se
-// puede cambiar desde la pantalla Ajustes sin recompilar.
+// Cliente de la API de MorvehTV. La dirección sale de app.json (extra.apiUrl): https://morvehtv.es
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 
-let base = Constants.expoConfig?.extra?.apiUrl ?? 'http://localhost:4000';
-
-export async function cargarAjustes() {
-  const guardada = await AsyncStorage.getItem('fg-api');
-  if (guardada) base = guardada;
-  return base;
-}
+const base = (Constants.expoConfig?.extra?.apiUrl ?? 'https://morvehtv.es').replace(/\/$/, '');
 
 export const urlApi = () => base;
-
-export async function cambiarUrlApi(url) {
-  base = url.trim().replace(/\/$/, '');
-  await AsyncStorage.setItem('fg-api', base);
-}
 
 export async function api(ruta) {
   const r = await fetch(`${base}/api${ruta}`);
@@ -50,21 +38,24 @@ export const progreso = {
   },
 };
 
-// Plataformas (Netflix, Prime Video…) y las que ha elegido el espectador
-let plataformas = [];
-export async function cargarPlataformas() {
-  plataformas = await api('/plataformas');
-  return plataformas;
+// Plataformas (Netflix, Prime Video…) de películas y cadenas originales de series,
+// y las que ha elegido el espectador en cada sección
+const plataformas = { pelicula: [], serie: [] };
+export async function cargarPlataformas(tipo = 'pelicula') {
+  plataformas[tipo] = await api(tipo === 'serie' ? '/plataformas?tipo=serie' : '/plataformas');
+  return plataformas[tipo];
 }
-export const infoPlataforma = (id) => plataformas.find((p) => p.id === id) ?? { id, nombre: id, color: '#555' };
+export const infoPlataforma = (id) =>
+  [...plataformas.pelicula, ...plataformas.serie].find((p) => p.id === id) ?? { id, nombre: id, color: '#555' };
 
+const claveElegidas = (tipo) => (tipo === 'serie' ? 'fg-plataformas-series' : 'fg-plataformas');
 export const misPlataformas = {
   // Sin elección guardada se ven todas
-  async obtener() {
-    const guardadas = await leer('fg-plataformas', null);
-    return guardadas ?? plataformas.map((p) => p.id);
+  async obtener(tipo = 'pelicula') {
+    const guardadas = await leer(claveElegidas(tipo), null);
+    return guardadas ?? plataformas[tipo].map((p) => p.id);
   },
-  guardar: (ids) => AsyncStorage.setItem('fg-plataformas', JSON.stringify(ids)),
+  guardar: (tipo, ids) => AsyncStorage.setItem(claveElegidas(tipo), JSON.stringify(ids)),
 };
 
 export function siguienteEpisodio(t, temporada, episodio) {

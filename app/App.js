@@ -2,17 +2,16 @@ import { useEffect, useState } from 'react';
 import { View, Text, BackHandler, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { cargarAjustes } from './src/api';
-import { Inicio, Explorar, MiLista, Ficha, Ajustes } from './src/pantallas';
+import { Inicio, Explorar, Series, MiLista, Ficha } from './src/pantallas';
 import { Reproductor } from './src/Reproductor';
-import { Cargando, Enfocable } from './src/componentes';
+import { Enfocable } from './src/componentes';
 import { c } from './src/tema';
 
 const PESTANAS = [
   ['inicio', 'Inicio', '⌂', Inicio],
   ['explorar', 'Películas', '⌕', Explorar],
+  ['series', 'Series', '▤', Series],
   ['lista', 'Mi lista', '♡', MiLista],
-  ['ajustes', 'Ajustes', '⚙', Ajustes],
 ];
 const PANTALLAS = { ficha: Ficha, reproductor: Reproductor };
 
@@ -67,11 +66,9 @@ function Navegador() {
 }
 
 export default function App() {
-  const [listo, setListo] = useState(false);
-  useEffect(() => { cargarAjustes().finally(() => setListo(true)); }, []);
   return (
     <SafeAreaProvider>
-      <View style={e.raiz}>{listo ? <Navegador /> : <Cargando />}</View>
+      <View style={e.raiz}><Navegador /></View>
     </SafeAreaProvider>
   );
 }

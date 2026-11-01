@@ -77,12 +77,13 @@ export function Tarjeta({ t, onPress, ancho = 120 }) {
 }
 
 // Casillas para elegir plataformas, como en la web
-export function SelectorPlataformas({ plataformas, elegidas, onCambiar }) {
+export function SelectorPlataformas({ plataformas, elegidas, onCambiar, titulo = 'Mis plataformas', ayuda }) {
   const alternar = (id) => onCambiar(elegidas.includes(id) ? elegidas.filter((x) => x !== id) : [...elegidas, id]);
   const resumen = elegidas.length === plataformas.length ? 'Todas' : elegidas.length ? elegidas.map((id) => infoPlataforma(id).nombre).join(', ') : 'Ninguna';
   return (
     <View style={e.selector}>
-      <Text style={e.selectorTitulo}>Mis plataformas</Text>
+      <Text style={e.selectorTitulo}>{titulo}</Text>
+      {ayuda ? <Text style={e.selectorAyuda}>{ayuda}</Text> : null}
       <Text style={e.selectorResumen}>Mostrando: <Text style={{ color: c.texto, fontWeight: '600' }}>{resumen}</Text></Text>
       <View style={e.casillas}>
         {plataformas.map((p) => {
@@ -172,6 +173,7 @@ const e = StyleSheet.create({
   etiquetasTarjeta: { position: 'absolute', top: 6, right: 6, left: 30, justifyContent: 'flex-end' },
   selector: { marginHorizontal: 16, marginBottom: 26, padding: 14, backgroundColor: '#1a1a22', borderWidth: 1, borderColor: '#2a2a35', borderRadius: 8 },
   selectorTitulo: { color: c.texto, fontSize: 17, fontWeight: '800' },
+  selectorAyuda: { color: c.texto3, fontSize: 12, marginTop: 2 },
   selectorResumen: { color: c.texto2, fontSize: 12, marginTop: 2, marginBottom: 12 },
   casillas: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   casilla: { flexBasis: '48%', flexGrow: 1, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 11, paddingHorizontal: 11, backgroundColor: '#20202a', borderRadius: 6 },

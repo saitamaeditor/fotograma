@@ -3,7 +3,7 @@ import {
   View, Text, Image, ScrollView, FlatList, RefreshControl, StyleSheet, useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { api, miLista, progreso, siguienteEpisodio, urlApi, cambiarUrlApi, cargarPlataformas, misPlataformas } from './api';
+import { api, miLista, progreso, siguienteEpisodio, urlApi, cargarPlataformas, misPlataformas } from './api';
 import { Fila, Tarjeta, Boton, Cargando, Vacio, SelectorPlataformas, EtiquetasPlataforma, Enfocable, Entrada } from './componentes';
 import { c } from './tema';
 
@@ -21,40 +21,38 @@ function useDatos(cargar, deps = []) {
 function ErrorConexion({ error, recargar, nav }) {
   return (
     <Vacio titulo="No se pudo conectar" texto={`${error.message}\n\nAPI: ${urlApi()}`}>
-      <View style={{ flexDirection: 'row', gap: 10, marginTop: 18 }}>
-        <Boton texto="Reintentar" onPress={recargar} />
-        <Boton texto="Ajustes" tipo="secundario" onPress={() => nav.pestana('ajustes')} />
-      </View>
+      <Boton texto="Reintentar" onPress={recargar} style={{ marginTop: 18 }} />
     </Vacio>
   );
 }
 
-// ---------- Inicio ----------
-// Plataformas disponibles y las elegidas; al cambiarlas se guardan en el móvil
-function usePlataformas() {
+// ---------- Inicio (películas) y Series ----------
+// Plataformas disponibles y las elegidas en cada sección; al cambiarlas se guardan en el móvil
+function usePlataformas(tipo = 'pelicula') {
   const [estado, setEstado] = useState({ lista: null, elegidas: [], error: null });
   const [intento, setIntento] = useState(0);
   useEffect(() => {
-    cargarPlataformas()
-      .then(async (lista) => setEstado({ lista, elegidas: await misPlataformas.obtener(), error: null }))
+    cargarPlataformas(tipo)
+      .then(async (lista) => setEstado({ lista, elegidas: await misPlataformas.obtener(tipo), error: null }))
       .catch((error) => setEstado({ lista: null, elegidas: [], error }));
-  }, [intento]);
+  }, [intento, tipo]);
   const reintentar = () => setIntento((n) => n + 1);
   const cambiar = (elegidas) => {
     setEstado((s) => ({ ...s, elegidas }));
-    misPlataformas.guardar(elegidas);
+    misPlataformas.guardar(tipo, elegidas);
   };
   return { ...estado, cambiar, reintentar };
 }
 
-export function Inicio({ nav }) {
+// Portada: destacado, selector y una fila por plataforma (películas) o cadena (series)
+function Portada({ nav, tipo }) {
   const { width, height } = useWindowDimensions();
   const ins = useSafeAreaInsets();
-  const plat = usePlataformas();
+  const plat = usePlataformas(tipo);
   const clave = plat.elegidas.join(',');
   const { datos, error, cargando, recargar } = useDatos(async () => {
     if (!plat.lista) return null;
-    return clave ? api(`/inicio?plataformas=${clave}`) : { destacado: null, filas: [] };
+    return clave ? api(`/inicio?tipo=${tipo}&plataformas=${clave}`) : { destacado: null, filas: [] };
   }, [plat.lista, clave]);
 
   if (plat.error) return <ErrorConexion error={plat.error} recargar={plat.reintentar} nav={nav} />;
@@ -62,16 +60,18 @@ export function Inicio({ nav }) {
   if (!datos) return <Cargando />;
   const { destacado, filas } = datos;
   const abrir = (t) => nav.ir('ficha', { id: t.id });
+  const series = tipo === 'serie';
+  const nada = series ? 'series' : 'películas';
 
   return (
     <ScrollView refreshControl={<RefreshControl refreshing={cargando} onRefresh={recargar} tintColor={c.acento} />}>
-      {destacado && (
+      {destacado ? (
         <View style={{ height: Math.min(height * 0.62, 560), justifyContent: 'flex-end' }}>
           <Image source={{ uri: destacado.fondo }} style={StyleSheet.absoluteFill} />
           <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(11,11,15,0.35)' }]} />
           <View style={e.degradado} />
           <View style={{ padding: 16, paddingTop: ins.top + 16 }}>
-            <Text style={e.marca}>FOTOGRAMA</Text>
+            <Text style={e.marca}>MorvehTV{series ? ' · SERIES' : ''}</Text>
             <Text style={[e.heroTitulo, { fontSize: width > 600 ? 48 : 34 }]}>{destacado.titulo}</Text>
             <Text style={e.heroTexto} numberOfLines={3}>{destacado.sinopsis}</Text>
             <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
@@ -80,19 +80,30 @@ export function Inicio({ nav }) {
             </View>
           </View>
         </View>
+      ) : (
+        <Text style={[e.h1, { paddingHorizontal: 16, paddingTop: ins.top + 16 }]}>{series ? 'Series' : 'Películas'}</Text>
       )}
-      <View style={{ paddingTop: destacado ? 20 : ins.top + 20, paddingBottom: 30 }}>
-        <SelectorPlataformas plataformas={plat.lista} elegidas={plat.elegidas} onCambiar={plat.cambiar} />
+      <View style={{ paddingTop: 20, paddingBottom: 30 }}>
+        <SelectorPlataformas
+          plataformas={plat.lista}
+          elegidas={plat.elegidas}
+          onCambiar={plat.cambiar}
+          titulo={series ? 'Cadenas originales' : 'Mis plataformas'}
+          ayuda={series ? 'Dónde se emitió originalmente cada serie, no dónde puedes verla ahora.' : null}
+        />
         {filas.length
           ? filas.map((f) => <Fila key={f.id} titulo={f.titulo} color={f.color} items={f.items} onPress={abrir} />)
           : <Vacio
-              titulo={plat.elegidas.length ? 'Sin películas' : 'Elige una plataforma'}
-              texto={plat.elegidas.length ? 'Todavía no hay películas en las plataformas elegidas.' : 'Marca arriba las plataformas que quieres ver.'}
+              titulo={plat.elegidas.length ? `Sin ${nada}` : 'Elige una plataforma'}
+              texto={plat.elegidas.length ? `Todavía no hay ${nada} en las plataformas elegidas.` : 'Marca arriba las plataformas que quieres ver.'}
             />}
       </View>
     </ScrollView>
   );
 }
+
+export const Inicio = (props) => <Portada {...props} tipo="pelicula" />;
+export const Series = (props) => <Portada {...props} tipo="serie" />;
 
 // ---------- Películas (búsqueda y filtro por plataforma) ----------
 export function Explorar({ nav }) {
@@ -191,7 +202,7 @@ export function Ficha({ nav, params }) {
   const [temporada, setTemporada] = useState(null);
   const [enLista, setEnLista] = useState(false);
   const { datos, error, recargar } = useDatos(async () => {
-    const [t, prog, ids] = await Promise.all([api(`/titulos/${params.id}`), progreso.todo(), miLista.ids(), cargarPlataformas()]);
+    const [t, prog, ids] = await Promise.all([api(`/titulos/${params.id}`), progreso.todo(), miLista.ids(), cargarPlataformas('pelicula'), cargarPlataformas('serie')]);
     setEnLista(ids.includes(params.id));
     return { t, p: prog[params.id] };
   }, [params.id]);
@@ -274,46 +285,6 @@ export function Ficha({ nav, params }) {
         )}
       </View>
     </ScrollView>
-  );
-}
-
-// ---------- Ajustes ----------
-export function Ajustes() {
-  const ins = useSafeAreaInsets();
-  const [url, setUrl] = useState(urlApi());
-  const [estado, setEstado] = useState('');
-
-  async function probar() {
-    setEstado('Probando…');
-    await cambiarUrlApi(url);
-    try {
-      const r = await api('/estado');
-      setEstado(`Conectado · ${r.titulos} títulos · e2 ${r.e2 ? 'ok' : 'sin configurar'}`);
-    } catch (err) {
-      setEstado(`Error: ${err.message}`);
-    }
-  }
-
-  return (
-    <View style={{ flex: 1, padding: 16, paddingTop: ins.top + 16, gap: 14 }}>
-      <Text style={e.h1}>Ajustes</Text>
-      <Text style={{ color: c.texto2 }}>URL de la API de Fotograma</Text>
-      <Entrada
-        value={url}
-        onChangeText={setUrl}
-        autoCapitalize="none"
-        autoCorrect={false}
-        keyboardType="url"
-        placeholder="https://api.mi-web.com"
-        placeholderTextColor={c.texto3}
-        style={e.entrada}
-      />
-      <Boton texto="Guardar y probar" onPress={probar} />
-      {estado ? <Text style={{ color: estado.startsWith('Error') ? c.peligro : c.texto2 }}>{estado}</Text> : null}
-      <Text style={{ color: c.texto3, fontSize: 12, marginTop: 'auto' }}>
-        Normalmente es https://morvehtv.es. Para probar con tu PC usa su IP en la red local, p. ej. http://192.168.1.10:4000
-      </Text>
-    </View>
   );
 }
 
