@@ -538,7 +538,19 @@ async function cargarFuente(video, fuente) {
     document.head.append(s);
   });
   const Hls = await hlsJs;
-  const h = new Hls({ maxBufferLength: 60 });
+  // Arranca antes (pide el primer trozo mientras lee la lista), guarda 60 s por delante y
+  // libera lo ya visto; si un trozo falla, lo reintenta varias veces antes de rendirse
+  const h = new Hls({
+    enableWorker: true,
+    startFragPrefetch: true,
+    maxBufferLength: 60,
+    maxMaxBufferLength: 120,
+    backBufferLength: 30,
+    fragLoadingMaxRetry: 6,
+    fragLoadingRetryDelay: 1000,
+    manifestLoadingMaxRetry: 4,
+    levelLoadingMaxRetry: 4,
+  });
   h.loadSource(fuente.url);
   h.attachMedia(video);
   h.on(Hls.Events.ERROR, (_, d) => { if (d.fatal) avisar('No se pudo cargar el vídeo. Vuelve a intentarlo.', true); });
@@ -721,10 +733,10 @@ cuenta.refrescar().then((ok) => {
 });
 
 // ---------- Contenido nuevo en tiempo real ----------
-// Cada 30 s pregunta a la API si el catálogo ha cambiado. Si sí, repinta la vista actual
+// Cada 2 min pregunta a la API si el catálogo ha cambiado. Si sí, repinta la vista actual
 // sin recargar ni mover el scroll y avisa de lo que ha llegado. En la ficha y el
 // reproductor no se toca nada para no interrumpir.
-const CADA_MS = 30_000;
+const CADA_MS = 120_000;
 const REPINTABLES = new Set(['inicio', 'peliculas', 'series', 'documentales', 'docuseries', 'anime', 'series-anime', 'programas', 'novelas-turcas', 'buscar', 'mi-lista']);
 let version = null;
 let conocidos = null;

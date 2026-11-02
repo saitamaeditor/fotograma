@@ -1,10 +1,11 @@
 import express from 'express';
+import compression from 'compression';
 import { timingSafeEqual } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as e2 from './e2.js';
 import * as tmdb from './tmdb.js';
-import { titulos, usuarios, ajustes, exportar, claves, iniciar as iniciarDb } from './db.js';
+import { titulos, usuarios, ajustes, exportar, claves, versionDatos, iniciar as iniciarDb } from './db.js';
 import * as importador from './importador.js';
 import * as telegram from './telegram.js';
 import * as cuentas from './cuentas.js';
@@ -18,7 +19,22 @@ const WEB = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'web');
 const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', 1); // Render va detrás de un proxy: así req.ip es la del espectador
+app.use(compression()); // JSON, listas HLS, HTML, CSS y JS van comprimidos
 app.use(express.json({ limit: '2mb' }));
+
+// Respuestas públicas del catálogo en memoria hasta que cambie algo: muchas visitas a la
+// vez no recalculan lo mismo. El navegador también puede reutilizarlas unos segundos.
+const cacheApi = new Map();
+function enCache(clave, calcular) {
+  const v = versionDatos();
+  const c = cacheApi.get(clave);
+  if (c && c.v === v) return c.valor;
+  const valor = calcular();
+  if (cacheApi.size > 300) cacheApi.clear();
+  cacheApi.set(clave, { v, valor });
+  return valor;
+}
+const publicoCorto = (res) => res.set('Cache-Control', 'public, max-age=15');
 
 // CORS para la web servida desde otro dominio y para la app móvil en desarrollo
 const origenes = CORS_ORIGINS.split(',').map((o) => o.trim());
@@ -84,8 +100,16 @@ app.get('/api/novedades', (req, res) => {
   res.set('Cache-Control', 'no-store').json({ version: `${lista.length}-${ultima}`, recientes });
 });
 
-app.get('/api/titulos', (req, res) => {
+app.get('/api/titulos', (req, res, next) => {
   importador.siHaceFalta();
+  const valor = enCache(`titulos:${req.originalUrl}`, () => {
+    let enviado;
+    titulosPublicos(req, { json: (v) => { enviado = v; } });
+    return enviado;
+  });
+  publicoCorto(res).json(valor);
+});
+function titulosPublicos(req, res) {
   const { tipo, categoria, genero, q, disponibles, plataformas } = req.query;
   const texto = q?.toString().toLowerCase();
   let lista = titulos.todos();
@@ -100,7 +124,7 @@ app.get('/api/titulos', (req, res) => {
     res2 = res2.filter((t) => t.plataformas.some((p) => elegidas.includes(p)));
   }
   res.json(res2);
-});
+}
 
 // ?tipo=pelicula|serie|documental|docuserie (por defecto películas)
 const categoriaPedida = (req) => (CATEGORIAS.includes(req.query.tipo) ? req.query.tipo : 'pelicula');
@@ -132,17 +156,24 @@ const esAppAntigua = (req) => /okhttp/i.test(req.get('user-agent') ?? '') && !re
 
 app.get('/api/portada', (req, res) => {
   importador.siHaceFalta();
-  const todos = titulos.todos();
-  const filas = CATEGORIAS.filter((id) => !esAppAntigua(req) || CATEGORIAS_APP_ANTIGUA.includes(id)).map((id) => ({
-    id,
-    titulo: NOMBRES_CATEGORIA[id],
-    items: todos.filter((t) => categoriaDe(t) === id).map((t) => ({ ...publico(t), categoria: id })),
-  })).filter((f) => f.items.length);
-  const visibles = filas.flatMap((f) => f.items);
-  const elegidos = visibles.filter((t) => t.fondo && titulos.obtener(t.id)?.destacado);
-  const destacado = elegidos[Math.floor(Math.random() * elegidos.length)]
-    ?? visibles.find((t) => t.disponible && t.fondo) ?? visibles.find((t) => t.fondo) ?? null;
-  res.json({ destacado, filas, categorias: CATEGORIAS.map((id) => ({ id, nombre: NOMBRES_CATEGORIA[id] })) });
+  const antigua = esAppAntigua(req);
+  const { filas, elegidos, otro } = enCache(`portada:${antigua}`, () => {
+    const todos = titulos.todos();
+    const filas = CATEGORIAS.filter((id) => !antigua || CATEGORIAS_APP_ANTIGUA.includes(id)).map((id) => ({
+      id,
+      titulo: NOMBRES_CATEGORIA[id],
+      items: todos.filter((t) => categoriaDe(t) === id).map((t) => ({ ...publico(t), categoria: id })),
+    })).filter((f) => f.items.length);
+    const visibles = filas.flatMap((f) => f.items);
+    return {
+      filas,
+      elegidos: visibles.filter((t) => t.fondo && titulos.obtener(t.id)?.destacado),
+      otro: visibles.find((t) => t.disponible && t.fondo) ?? visibles.find((t) => t.fondo) ?? null,
+    };
+  });
+  // El destacado se elige al azar en cada visita entre los marcados con ★
+  const destacado = elegidos[Math.floor(Math.random() * elegidos.length)] ?? otro;
+  res.set('Cache-Control', 'no-cache').json({ destacado, filas, categorias: CATEGORIAS.map((id) => ({ id, nombre: NOMBRES_CATEGORIA[id] })) });
 });
 
 // (Versiones antiguas de la web y la app) Plataformas de una categoría
@@ -165,7 +196,7 @@ app.get('/api/generos', (req, res) => {
 app.get('/api/titulos/:id', (req, res) => {
   const t = titulos.obtener(req.params.id);
   if (!t) return res.status(404).json({ error: 'No existe ese título' });
-  res.json(publico(t, true));
+  publicoCorto(res).json(enCache(`titulo:${t.id}`, () => publico(t, true)));
 });
 
 function buscarVideo(t, temporada, episodio) {
@@ -538,7 +569,7 @@ app.get('/api/titulos/:id/reproducir', conCuenta, asinc(async (req, res) => {
 app.get('/api/hls/:tk/index.m3u8', asinc(async (req, res) => {
   const p = hls.leerPermiso(req.params.tk);
   if (!p) return res.status(403).send('Permiso caducado');
-  res.set({ 'Content-Type': 'application/vnd.apple.mpegurl', 'Cache-Control': 'no-store' }).send(await hls.lista(p.prefijo));
+  res.set({ 'Content-Type': 'application/vnd.apple.mpegurl', 'Cache-Control': 'no-store' }).send(await hls.listaFirmada(p.prefijo));
 }));
 app.get('/api/hls/:tk/clave', (req, res) => {
   const p = hls.leerPermiso(req.params.tk);

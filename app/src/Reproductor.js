@@ -70,7 +70,9 @@ function Video({ fuente, nav, params, ficha }) {
   const sig = temporada ? siguienteEpisodio(ficha, temporada, episodio) : null;
 
   const player = useVideoPlayer(fuente.tipo === 'hls' ? { uri: fuente.url, contentType: 'hls' } : fuente.url, (p) => {
-    p.timeUpdateEventInterval = 0.5;
+    p.timeUpdateEventInterval = 1;
+    // Carga 50 s por delante y no arranca hasta tener 2 s: menos cortes con conexiones irregulares
+    p.bufferOptions = { preferredForwardBufferDuration: 50, minBufferForPlayback: 2, waitsToMinimizeStalling: true };
     p.play();
   });
   const { status } = useEvent(player, 'statusChange', { status: player.status });

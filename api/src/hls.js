@@ -29,8 +29,26 @@ export function leerPermiso(tk) {
   return { usuario: d.u, prefijo: d.p };
 }
 
-// La lista del vídeo, con la clave y los trozos apuntando a este servidor (rutas relativas
-// al permiso: «clave» y «s/trozo00001.ts»). Se guarda en memoria porque no cambia.
+// La lista del vídeo. La clave apunta a este servidor (ruta relativa al permiso: «clave») y
+// cada trozo va directo a e2 con un enlace firmado: así el servidor no atiende una petición
+// por cada trozo de 6 s. Los trozos van cifrados, así que sin la clave no sirven de nada.
+// Las listas firmadas se guardan 1 h y sus enlaces duran 8 h (más que un permiso, 6 h).
+const FIRMA_HORAS = 8;
+const RENOVAR_MS = 3600e3;
+const firmadas = new Map();
+export async function listaFirmada(prefijo) {
+  const c = firmadas.get(prefijo);
+  if (c && Date.now() - c.creada < RENOVAR_MS) return c.texto;
+  const base = await lista(prefijo);
+  const lineas = await Promise.all(base.split('\n').map((linea) => (
+    linea.startsWith('s/') ? e2.urlCorta(`${prefijo}/${linea.slice(2)}`, FIRMA_HORAS * 3600) : linea
+  )));
+  const texto = lineas.join('\n');
+  firmadas.set(prefijo, { texto, creada: Date.now() });
+  return texto;
+}
+
+// La lista con rutas relativas al permiso («clave» y «s/trozo00001.ts»). No cambia.
 const cache = new Map();
 export async function lista(prefijo) {
   if (!cache.has(prefijo)) {
@@ -46,4 +64,4 @@ export async function lista(prefijo) {
   return cache.get(prefijo);
 }
 
-export const olvidarLista = (prefijo) => cache.delete(prefijo);
+export const olvidarLista = (prefijo) => { cache.delete(prefijo); firmadas.delete(prefijo); };

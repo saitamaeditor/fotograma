@@ -37,15 +37,41 @@ function escribirDisco() {
   renameSync(tmp, RUTA);
 }
 
-// Las subidas al bucket van en cola para que nunca se pise una versión nueva con una vieja
+// Los cambios se agrupan: como mucho se guarda una vez cada GUARDAR_MS (antes se subía la
+// base de datos entera a e2 con cada cambio, p. ej. con cada aviso de progreso de un vídeo).
+// Las subidas al bucket van en cola para que nunca se pise una versión nueva con una vieja.
+const GUARDAR_MS = 4000;
 let cola = Promise.resolve();
+let pendiente = null;
+let version = 0;
+
+// Sube cada vez que cambia algo: sirve para saber si lo que hay en caché sigue valiendo
+export const versionDatos = () => version;
+
 function guardar() {
+  version++;
+  pendiente ??= setTimeout(guardarYa, GUARDAR_MS);
+}
+
+function guardarYa() {
+  clearTimeout(pendiente);
+  pendiente = null;
   escribirDisco();
-  if (!e2.configurado) return;
+  if (!e2.configurado) return cola;
   const texto = JSON.stringify(datos);
   cola = cola
     .then(() => e2.guardarTexto(CLAVE_E2, texto))
     .catch((err) => console.error('No se pudo guardar el catálogo en e2:', err.message));
+  return cola;
+}
+
+// Antes de apagarse (Render manda SIGTERM al publicar) se guarda lo pendiente
+export async function vaciar() {
+  if (pendiente) guardarYa();
+  await cola;
+}
+for (const senal of ['SIGTERM', 'SIGINT']) {
+  process.once(senal, () => vaciar().finally(() => process.exit(0)));
 }
 
 // Claves AES-128 de los vídeos cifrados, por carpeta de e2 (_hls/…). Van aparte de los

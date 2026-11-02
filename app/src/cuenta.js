@@ -10,7 +10,8 @@ const BASE = (Constants.expoConfig?.extra?.apiUrl ?? 'https://morvehtv.es').repl
 
 const SINCRONIZADAS = /^fg-(lista|progreso|plataformas(-[a-z]+)?)$/;
 const ESPERA_MS = 1500; // agrupa cambios seguidos (p. ej. el progreso del vídeo)
-const CADA_MS = 60_000; // con la app abierta, trae cada minuto lo hecho en otros dispositivos
+const CADA_MS = 180_000; // con la app abierta, trae cada 3 minutos lo hecho en otros dispositivos
+const ESPERA_PROGRESO_MS = 45_000;
 
 let sesion = null;
 // Lo último que se sabe de la cuenta: la lista tal como estaba y cuándo. Con eso se
@@ -150,12 +151,23 @@ export function alEscribir(clave, valor) {
   if (!sesion || !SINCRONIZADAS.test(clave)) return;
   if (clave === 'fg-lista') { lista = valor; listaCambiada = true; }
   else pendientes[clave] = valor;
+  // El progreso del vídeo cambia cada pocos segundos: se manda como mucho cada 45 s
+  // (y al salir); el resto de cambios, enseguida
+  programarEnvio(clave === 'fg-progreso' ? ESPERA_PROGRESO_MS : ESPERA_MS);
+}
+
+let vence = 0;
+function programarEnvio(ms) {
+  const cuando = Date.now() + ms;
+  if (temporizador && vence <= cuando) return; // ya hay un envío antes
   clearTimeout(temporizador);
-  temporizador = setTimeout(enviarPendientes, ESPERA_MS);
+  vence = cuando;
+  temporizador = setTimeout(enviarPendientes, ms);
 }
 
 function enviarPendientes() {
   clearTimeout(temporizador);
+  temporizador = null;
   if (enCurso) return enCurso.then(() => enviarPendientes());
   if (!sesion || (!listaCambiada && !Object.keys(pendientes).length)) return Promise.resolve();
   const enviada = lista;
