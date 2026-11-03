@@ -7,10 +7,13 @@
 //   Series (carpeta con «serie» en el nombre o archivo con SxxExx):
 //     «SERIES NETFLIX/Stranger Things/Stranger Things S01E02.mp4»
 //     «SERIES NETFLIX/Stranger Things/Temporada 1/02.mp4», «… 1x02.mp4», «… T1E02.mp4»
+//   Deportes (carpeta con «deport» en el nombre; no se busca en TMDB):
+//     «DEPORTES/FUTBOL/Real Madrid vs Barcelona 26-10-2026.mp4» → evento de Fútbol
+//     Portada: imagen con el mismo nombre que el vídeo (.jpg/.png/.webp) o «portada.jpg» en su carpeta
 import * as e2 from './e2.js';
 import * as tmdb from './tmdb.js';
 import { titulos } from './db.js';
-import { detectar, carpeta, generosPorCarpeta } from './plataformas.js';
+import { detectar, carpeta, generosPorCarpeta, carpetaDeporte, esDeporte } from './plataformas.js';
 import * as telegram from './telegram.js';
 import { anotar } from './registro.js';
 
@@ -69,12 +72,73 @@ export function analizar(key) {
   return nombre ? { tipo: 'pelicula', nombre, anio } : null;
 }
 
+// ---------- Deportes ----------
+const IMAGEN = /\.(jpe?g|png|webp)$/i;
+const sinExtension = (k) => k.replace(/\.[^./]+$/, '').toLowerCase();
+const DEPORTES = {
+  futbol: 'Fútbol', baloncesto: 'Baloncesto', basket: 'Baloncesto', tenis: 'Tenis', padel: 'Pádel',
+  'formula 1': 'Fórmula 1', f1: 'Fórmula 1', motogp: 'MotoGP', motos: 'Motociclismo', ciclismo: 'Ciclismo',
+  boxeo: 'Boxeo', ufc: 'UFC', mma: 'MMA', nba: 'NBA', nfl: 'NFL', rugby: 'Rugby', golf: 'Golf', balonmano: 'Balonmano',
+};
+// «FUTBOL» → «Fútbol»; lo que no conoce lo pone con mayúscula inicial («VOLEY PLAYA» → «Voley Playa»)
+function nombreDeporte(texto) {
+  const limpio = texto.replace(/^\d+\s*[-.]\s*/, '').trim();
+  const clave = limpio.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  return DEPORTES[clave] ?? limpio.toLowerCase().replace(/(^|\s)\p{L}/gu, (l) => l.toUpperCase());
+}
+
+// Imágenes que hay justo en una carpeta (se guardan por escaneo para no listar dos veces)
+async function imagenesDe(dir, cache) {
+  if (!cache.has(dir)) {
+    const keys = (await e2.listar(`${dir}/`)).map((o) => o.key);
+    cache.set(dir, keys.filter((k) => IMAGEN.test(k) && carpeta(k) === dir));
+  }
+  return cache.get(dir);
+}
+function portadaPara(key, imagenes) {
+  return imagenes.find((k) => sinExtension(k) === sinExtension(key))
+    ?? imagenes.find((k) => /\/(portada|poster|cover)\.[a-z]+$/i.test(k)) ?? null;
+}
+
+async function importarDeporte(key, cache) {
+  const partes = key.split('/');
+  const i = partes.findIndex((p) => /deport/i.test(p));
+  const sub = partes.slice(i + 1, -1)[0];
+  const deporte = sub ? nombreDeporte(sub) : null;
+  const archivo = partes.at(-1);
+  const sinExt = archivo.replace(/\.[a-z0-9]{2,4}$/i, '');
+  const titulo = limpiarNombre(archivo) || sinExt;
+  const t = titulos.crear({
+    tipo: 'pelicula',
+    titulo,
+    anio: separarAnio(sinExt).anio,
+    sinopsis: '',
+    generos: ['Deportes', ...(deporte ? [deporte] : [])],
+    deporte,
+    reparto: [],
+    importado: true,
+    videoKey: key,
+    portadaKey: portadaPara(key, await imagenesDe(carpeta(key), cache)),
+  });
+  return { key, id: t.id, titulo: t.titulo, tipo: t.tipo };
+}
+
+// Si se sube la imagen después que el vídeo, en el siguiente escaneo se le pone a su evento
+async function completarPortadas(cache) {
+  for (const t of titulos.todos()) {
+    if (!esDeporte(t) || !t.videoKey || t.portadaKey || t.poster) continue;
+    const p = portadaPara(t.videoKey, await imagenesDe(carpeta(t.videoKey), cache));
+    if (p) titulos.actualizar(t.id, { portadaKey: p });
+  }
+}
+
 async function buscarEnTmdb({ nombre, tipo, anio }) {
   const conAnio = anio ? await tmdb.buscar(nombre, tipo, anio) : [];
   return conAnio[0] ?? (await tmdb.buscar(nombre, tipo))[0] ?? null;
 }
 
-async function importar(key) {
+async function importar(key, cache) {
+  if (carpetaDeporte(key)) return importarDeporte(key, cache);
   const datos = analizar(key);
   if (!datos) throw new Error('No se entiende el nombre del archivo');
   const encontrado = await buscarEnTmdb(datos);
@@ -130,18 +194,20 @@ export function escanear({ manual = false } = {}) {
   enCurso = (async () => {
     const nuevos = [];
     const errores = [];
+    const cache = new Map();
     try {
       const ya = enlazados();
       // Los episodios de una misma serie van seguidos para crear la ficha una sola vez
       const pendientes = (await e2.listarVideos()).filter((v) => !ya.has(v.key) && !fallidos.has(v.key));
       for (const { key } of pendientes) {
         try {
-          nuevos.push(await importar(key));
+          nuevos.push(await importar(key, cache));
         } catch (err) {
           fallidos.add(key);
           errores.push({ key, error: err.message });
         }
       }
+      await completarPortadas(cache);
     } catch (err) {
       errores.push({ key: null, error: err.message });
     }

@@ -301,3 +301,36 @@ a.fila-total:hover { color: #fff; }
 .nav-mas:hover .nav-menu, .nav-mas:focus-within .nav-menu { display: grid; }
 .nav-menu a { padding: 9px 12px; border-radius: 6px; }
 .nav-menu a:hover, .nav-menu a.activo { background: rgba(255, 255, 255, 0.08); color: #fff; }
+
+/* ---------- Deportes ---------- */
+/* Cartel dibujado para los eventos sin imagen: color del deporte, icono y título */
+.cartel-deporte {
+  position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px;
+  padding: 12px; text-align: left; overflow: hidden;
+  background:
+    radial-gradient(circle at 80% 15%, hsl(var(--tono) 85% 55% / 0.55), transparent 55%),
+    linear-gradient(160deg, hsl(var(--tono) 70% 28%), hsl(calc(var(--tono) + 40) 60% 10%));
+}
+.cartel-deporte::before {
+  content: ''; position: absolute; inset: 0; opacity: 0.12;
+  background: repeating-linear-gradient(115deg, #fff 0 2px, transparent 2px 22px);
+}
+.cartel-icono { position: absolute; top: 10px; right: 12px; font-size: clamp(30px, 3.4vw, 46px); filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.4)); }
+.cartel-deporte-nombre { position: relative; font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255, 255, 255, 0.8); }
+.cartel-titulo { position: relative; font-weight: 800; font-size: clamp(14px, 1.2vw, 18px); line-height: 1.15; color: #fff; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5); }
+.ficha-poster { position: relative; }
+.ficha-poster .cartel-titulo { font-size: 22px; }
+.ficha-poster .cartel-icono { font-size: 56px; }
+
+/* Portada de la sección */
+.hero-deportes .hero-fondo-deporte {
+  background:
+    radial-gradient(ellipse at 75% 30%, hsl(var(--tono) 85% 50% / 0.55), transparent 60%),
+    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.05) 0 2px, transparent 2px 46px),
+    linear-gradient(160deg, hsl(var(--tono) 60% 18%), #050507 75%);
+}
+.hero-seccion { display: inline-block; margin-bottom: 14px; padding: 5px 12px; border-radius: 999px; background: rgba(0, 0, 0, 0.45); border: 1px solid rgba(255, 255, 255, 0.25); font-size: 13px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.deportes-chips { margin-top: 22px; }
+.deportes-chips .chip { background: rgba(0, 0, 0, 0.45); }
+.pagina-en-filas { padding-top: 10px; }
+.pagina-en-filas h2 { font-size: clamp(18px, 1.6vw, 24px); }

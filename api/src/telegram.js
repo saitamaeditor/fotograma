@@ -19,9 +19,10 @@ export const SECCIONES = {
   'anime-serie': { nombre: 'Series anime', tema: '🍥 Series anime', color: 13338331, cabecera: '🍥 <b>Nueva serie anime en MorvehTV</b>' },
   programa: { nombre: 'Programas de TV', tema: '📡 Programas de TV', color: 7322096, cabecera: '📡 <b>Nuevo programa de TV en MorvehTV</b>' },
   'novela-turca': { nombre: 'Novelas turcas', tema: '🇹🇷 Novelas turcas', color: 16478047, cabecera: '🇹🇷 <b>Nueva novela turca en MorvehTV</b>' },
+  deporte: { nombre: 'Deportes', tema: '⚽ Deportes', color: 3381555, cabecera: '⚽ <b>Nuevo evento deportivo en MorvehTV</b>' },
 };
 // Si una sección no tiene tema propio, usa el de su tipo (documental y anime → películas, docuserie y series anime → series)
-const BASE = { documental: 'pelicula', docuserie: 'serie', 'anime-pelicula': 'pelicula', 'anime-serie': 'serie', programa: 'serie', 'novela-turca': 'serie' };
+const BASE = { documental: 'pelicula', docuserie: 'serie', 'anime-pelicula': 'pelicula', 'anime-serie': 'serie', programa: 'serie', 'novela-turca': 'serie', deporte: 'pelicula' };
 
 const config = () => ({ activo: true, downloader: DOWNLOADER, ...ajustes.obtener('telegram') });
 
@@ -165,7 +166,9 @@ function mensaje(t, episodios) {
     datos ? html(datos) : '',
     sinopsis ? `\n<i>${html(sinopsis)}</i>` : '',
   ].filter((l) => l !== '').join('\n');
-  return { foto: t.poster, texto, seccion, boton: { texto: '▶ Ver en MorvehTV', url: `${WEB}/ver#/titulo/${t.id}` } };
+  // Los eventos de deportes usan como cartel la imagen del bucket (por su ruta pública)
+  const foto = t.poster ?? (t.portadaKey ? `${WEB}/api/titulos/${t.id}/portada` : null);
+  return { foto, texto, seccion, boton: { texto: '▶ Ver en MorvehTV', url: `${WEB}/ver#/titulo/${t.id}` } };
 }
 
 // `novedades`: [{ id, temporada?, episodio? }]. Los episodios de una misma serie van en un solo mensaje.

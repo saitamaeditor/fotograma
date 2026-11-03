@@ -40,6 +40,31 @@ const progreso = {
 // En filas: tarjeta horizontal (imagen de fondo) que se amplía con info al pasar el ratón.
 // En rejillas: cartel vertical.
 
+// ---------- Deportes ----------
+const esDeporte = (t) => (t.generos ?? []).includes('Deportes');
+// Texto para «Película», «Serie» o el deporte del evento
+const etiquetaTipo = (t) => (esDeporte(t) ? t.deporte ?? 'Deportes' : t.tipo === 'serie' ? 'Serie' : 'Película');
+const ICONOS_DEPORTE = [
+  [/f[uú]tbol|soccer|liga|champions/i, '⚽'], [/baloncesto|basket|nba/i, '🏀'], [/tenis|p[aá]del/i, '🎾'],
+  [/f[oó]rmula|f1|motor|rally/i, '🏎️'], [/moto/i, '🏍️'], [/ciclismo|tour/i, '🚴'], [/boxeo|ufc|mma|lucha/i, '🥊'],
+  [/nfl|americano/i, '🏈'], [/rugby/i, '🏉'], [/golf/i, '⛳'], [/balonmano/i, '🤾'],
+];
+const iconoDeporte = (d = '') => ICONOS_DEPORTE.find(([re]) => re.test(d))?.[1] ?? '🏆';
+// Cada deporte tiene su color (siempre el mismo para el mismo nombre)
+function colorDeporte(d = '') {
+  let h = 0;
+  for (const ch of d) h = (h * 31 + ch.codePointAt(0)) % 360;
+  return h;
+}
+// Cartel dibujado para los eventos que no tienen imagen
+const cartelDeporte = (t) => `
+  <div class="cartel-deporte" style="--tono:${colorDeporte(t.deporte ?? 'Deportes')}">
+    <span class="cartel-icono" aria-hidden="true">${iconoDeporte(t.deporte)}</span>
+    <span class="cartel-deporte-nombre">${esc(t.deporte ?? 'Deportes')}</span>
+    <span class="cartel-titulo">${esc(t.titulo)}</span>
+  </div>`;
+const iconoTrofeo = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4zM7 6H4a3 3 0 0 0 3 4M17 6h3a3 3 0 0 1-3 4"/></svg>';
+
 function tarjeta(t, { vertical = false } = {}) {
   const p = progreso.de(t.id);
   const pct = p?.duracion ? Math.min(100, (p.segundo / p.duracion) * 100) : 0;
@@ -48,14 +73,14 @@ function tarjeta(t, { vertical = false } = {}) {
     <a class="tarjeta ${vertical ? 'vertical' : 'horizontal'}" href="#/titulo/${t.id}">
       <div class="tarjeta-img">
         ${imagen ? `<img src="${esc(imagen)}" alt="" loading="lazy" />` : ''}
-        ${!vertical ? `<span class="tarjeta-nombre">${esc(t.titulo)}</span>` : ''}
-        ${!imagen ? `<div class="tarjeta-sin">${esc(t.titulo)}</div>` : ''}
+        ${!vertical && (imagen || !esDeporte(t)) ? `<span class="tarjeta-nombre">${esc(t.titulo)}</span>` : ''}
+        ${!imagen ? (esDeporte(t) ? cartelDeporte(t) : `<div class="tarjeta-sin">${esc(t.titulo)}</div>`) : ''}
         ${t.disponible ? '' : '<span class="insignia pronto">Próximamente</span>'}
         ${pct > 1 ? `<div class="progreso"><span style="width:${pct}%"></span></div>` : ''}
       </div>
       ${vertical ? `
         <div class="tarjeta-titulo">${esc(t.titulo)}</div>
-        <div class="tarjeta-sub">${esc([t.anio, t.tipo === 'serie' ? 'Serie' : 'Película'].filter(Boolean).join(' · '))}</div>` : `
+        <div class="tarjeta-sub">${esc([t.anio, etiquetaTipo(t)].filter(Boolean).join(' · '))}</div>` : `
         <div class="tarjeta-info">
           <div class="tarjeta-botones">
             <span class="redondo blanco">${iconos.play}</span>
@@ -65,7 +90,7 @@ function tarjeta(t, { vertical = false } = {}) {
           <div class="tarjeta-meta">
             ${t.valoracion ? `<span class="coincide">${Math.round(t.valoracion * 10)} % de valoración</span>` : ''}
             ${t.anio ? `<span>${esc(t.anio)}</span>` : ''}
-            <span class="etiqueta">${t.tipo === 'serie' ? 'Serie' : 'Película'}</span>
+            <span class="etiqueta">${esc(etiquetaTipo(t))}</span>
           </div>
           <div class="tarjeta-generos">${(t.generos ?? []).slice(0, 3).map(esc).join(' <i>•</i> ')}</div>
         </div>`}
@@ -83,6 +108,7 @@ const CATEGORIAS = {
   'anime-serie': { nombre: 'Series anime', unidad: ['serie anime', 'series anime'], ruta: 'series-anime' },
   programa: { nombre: 'Programas de TV', unidad: ['programa de TV', 'programas de TV'], ruta: 'programas' },
   'novela-turca': { nombre: 'Novelas turcas', unidad: ['novela turca', 'novelas turcas'], ruta: 'novelas-turcas' },
+  deporte: { nombre: 'Deportes', unidad: ['evento', 'eventos'], ruta: 'deportes' },
 };
 // Texto «1 película», «3 series»…
 const cuantos = (n, tipo) => `${n} ${(CATEGORIAS[tipo]?.unidad ?? ['título', 'títulos'])[n === 1 ? 0 : 1]}`;
@@ -109,7 +135,7 @@ function meta(t) {
       ${t.anio ? `<span>${esc(t.anio)}</span>` : ''}
       ${t.duracion && t.tipo === 'pelicula' ? `<span>${Math.floor(t.duracion / 60)} h ${t.duracion % 60} min</span>` : ''}
       ${t.temporadas?.length ? `<span>${t.temporadas.length} temporada${t.temporadas.length > 1 ? 's' : ''}</span>` : ''}
-      <span class="etiqueta">${t.tipo === 'serie' ? 'Serie' : 'Película'}</span>
+      <span class="etiqueta">${esc(etiquetaTipo(t))}</span>
       ${(t.generos ?? []).slice(0, 3).map((g) => `<span>${esc(g)}</span>`).join('<span>·</span>')}
     </div>`;
 }
@@ -164,6 +190,47 @@ async function verCategoria(tipo) {
         ? `<div class="rejilla">${lista.map((t) => tarjeta(t, { vertical: true })).join('')}</div>`
         : vacio(`Sin ${c.unidad[1]}`, `Todavía no hay ${c.unidad[1]} en el catálogo.`)}
     </div>`;
+}
+
+// Deportes: portada con el último evento, una fila por deporte (subcarpeta de DEPORTES en e2)
+// y todos los eventos debajo
+async function verDeportes() {
+  const lista = await api('/titulos?categoria=deporte');
+  if (!lista.length) {
+    vista.innerHTML = `<div class="pagina">
+      <div class="pagina-cab"><h1>Deportes</h1></div>
+      ${vacio('Sin eventos todavía', 'Los partidos y eventos que se suban a la carpeta DEPORTES aparecerán aquí.')}
+    </div>`;
+    return;
+  }
+  const destacado = lista.find((t) => t.disponible) ?? lista[0];
+  const porDeporte = Map.groupBy(lista, (t) => t.deporte ?? 'Otros eventos');
+  vista.innerHTML = `
+    <section class="hero hero-deportes" style="--tono:${colorDeporte(destacado.deporte ?? 'Deportes')}">
+      ${destacado.fondo ? `<div class="hero-fondo" style="background-image:url('${esc(destacado.fondo)}')"></div>` : '<div class="hero-fondo hero-fondo-deporte"></div>'}
+      <div class="hero-contenido">
+        <span class="hero-seccion">${iconoDeporte(destacado.deporte)} Deportes · ${esc(destacado.deporte ?? 'Último evento')}</span>
+        <h1>${esc(destacado.titulo)}</h1>
+        ${destacado.sinopsis ? `<p>${esc(destacado.sinopsis)}</p>` : `<p>${cuantos(lista.length, 'deporte')} para ver cuando quieras.</p>`}
+        <div class="acciones">
+          ${destacado.disponible ? `<a class="btn btn-primario" href="#/ver/${destacado.id}">${iconos.play} Ver ahora</a>` : ''}
+          <a class="btn btn-secundario" href="#/titulo/${destacado.id}">${iconos.info} Más información</a>
+        </div>
+        ${porDeporte.size > 1 ? `<div class="chips deportes-chips">${[...porDeporte.keys()].map((d) => `<a class="chip" href="#deporte-${colorDeporte(d)}">${iconoDeporte(d)} ${esc(d)}</a>`).join('')}</div>` : ''}
+      </div>
+    </section>
+    <div class="filas">
+      ${porDeporte.size > 1 ? [...porDeporte].map(([d, items]) => `<div id="deporte-${colorDeporte(d)}">${fila(`${iconoDeporte(d)} ${d}`, items, 'deporte')}</div>`).join('') : ''}
+      <section class="pagina pagina-en-filas">
+        <div class="pagina-cab"><h2>Todos los eventos</h2><span class="texto-2">${cuantos(lista.length, 'deporte')}</span></div>
+        <div class="rejilla">${lista.map((t) => tarjeta(t, { vertical: true })).join('')}</div>
+      </section>
+    </div>`;
+  activarCarruseles();
+  // Los chips bajan a la fila de su deporte sin cambiar de página
+  for (const a of vista.querySelectorAll('.deportes-chips a')) {
+    a.onclick = (ev) => { ev.preventDefault(); document.querySelector(a.getAttribute('href'))?.scrollIntoView({ behavior: 'smooth' }); };
+  }
 }
 
 async function verBusqueda() {
@@ -464,7 +531,7 @@ async function verTitulo(id) {
       <section class="ficha-hero">
         <div class="hero-fondo" style="background-image:url('${esc(t.fondo ?? t.poster ?? '')}')"></div>
         <div class="ficha-grid">
-          <div class="ficha-poster">${t.poster ? `<img src="${esc(t.poster)}" alt="Cartel de ${esc(t.titulo)}" />` : ''}</div>
+          <div class="ficha-poster">${t.poster ? `<img src="${esc(t.poster)}" alt="Cartel de ${esc(t.titulo)}" />` : esDeporte(t) ? cartelDeporte(t) : ''}</div>
           <div>
             <h1>${esc(t.titulo)}</h1>
             ${t.tituloOriginal && t.tituloOriginal !== t.titulo ? `<p class="original">${esc(t.tituloOriginal)}</p>` : ''}
@@ -656,6 +723,7 @@ const rutas = [
   [/^#\/anime/, () => verCategoria('anime-pelicula'), 'anime'],
   [/^#\/programas/, () => verCategoria('programa'), 'programas'],
   [/^#\/novelas-turcas/, () => verCategoria('novela-turca'), 'novelas-turcas'],
+  [/^#\/deportes/, verDeportes, 'deportes'],
   [/^#\/buscar/, verBusqueda, 'buscar'],
   [/^#\/mi-lista/, verMiLista, 'mi-lista'],
   [/^#\/cuenta/, verCuenta, 'cuenta'],
@@ -690,6 +758,7 @@ document.getElementById('nav-movil').innerHTML = `
   <a href="#/peliculas">${iconos.peli}Películas</a>
   <a href="#/series">${iconos.tv}Series</a>
   <a href="#/anime">${iconos.peli}Anime</a>
+  <a href="#/deportes">${iconoTrofeo}Deportes</a>
   <a href="#/mi-lista">${iconos.lista}Mi lista</a>`;
 
 document.getElementById('buscador').addEventListener('submit', (ev) => {
@@ -721,7 +790,7 @@ cuenta.alCambiar(pintarBotonCuenta);
 // Cuando llegan cambios de otro dispositivo (lista o progreso), se repinta la vista
 cuenta.alLlegarDatos(() => {
   const nombre = (rutas.find(([re]) => re.test(location.hash || '#/')) ?? rutas[0])[2];
-  if (['inicio', 'peliculas', 'series', 'mi-lista', 'documentales', 'docuseries', 'anime', 'series-anime', 'programas', 'novelas-turcas'].includes(nombre)) {
+  if (['inicio', 'peliculas', 'series', 'mi-lista', 'documentales', 'docuseries', 'anime', 'series-anime', 'programas', 'novelas-turcas', 'deportes'].includes(nombre)) {
     const y = window.scrollY;
     enrutar().then(() => window.scrollTo(0, y));
   }
@@ -737,7 +806,7 @@ cuenta.refrescar().then((ok) => {
 // sin recargar ni mover el scroll y avisa de lo que ha llegado. En la ficha y el
 // reproductor no se toca nada para no interrumpir.
 const CADA_MS = 120_000;
-const REPINTABLES = new Set(['inicio', 'peliculas', 'series', 'documentales', 'docuseries', 'anime', 'series-anime', 'programas', 'novelas-turcas', 'buscar', 'mi-lista']);
+const REPINTABLES = new Set(['inicio', 'peliculas', 'series', 'documentales', 'docuseries', 'anime', 'series-anime', 'programas', 'novelas-turcas', 'deportes', 'buscar', 'mi-lista']);
 let version = null;
 let conocidos = null;
 

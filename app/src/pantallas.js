@@ -4,7 +4,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api, miLista, progreso, siguienteEpisodio, urlApi } from './api';
-import { Fila, Tarjeta, Boton, Cargando, Vacio, Enfocable, Entrada } from './componentes';
+import { Fila, Tarjeta, Boton, Cargando, Vacio, Enfocable, Entrada, CartelDeporte, esDeporte, iconoDeporte, colorDeporte } from './componentes';
 import * as cuenta from './cuenta';
 import { c } from './tema';
 
@@ -286,6 +286,7 @@ const CATEGORIAS = {
   'anime-serie': { nombre: 'Series anime', unidad: 'series anime' },
   programa: { nombre: 'Programas de TV', unidad: 'programas de TV' },
   'novela-turca': { nombre: 'Novelas turcas', unidad: 'novelas turcas' },
+  deporte: { nombre: 'Deportes', unidad: 'eventos' },
 };
 
 // Inicio: el destacado y una fila por categoría, con «Ver todo» para abrir cada una
@@ -375,8 +376,53 @@ function Categoria({ nav, tipo, atras, titulo }) {
 export const Peliculas = (props) => <Categoria {...props} tipo="pelicula" />;
 export const Series = (props) => <Categoria {...props} tipo="serie" />;
 export const Anime = (props) => <Categoria {...props} tipo="anime-pelicula" />;
-// Pantalla que se abre desde «Ver todo»
-export const PantallaCategoria = ({ nav, params }) => <Categoria nav={nav} tipo={params.tipo} titulo={params.titulo} atras />;
+// Pantalla que se abre desde «Ver todo» (Deportes tiene la suya, con portada)
+export const PantallaCategoria = ({ nav, params }) => (params.tipo === 'deporte'
+  ? <Deportes nav={nav} atras />
+  : <Categoria nav={nav} tipo={params.tipo} titulo={params.titulo} atras />);
+
+// Deportes: portada con el último evento y una fila por deporte (subcarpeta de DEPORTES en e2)
+export function Deportes({ nav, atras }) {
+  const { width, height } = useWindowDimensions();
+  const ins = useSafeAreaInsets();
+  const { datos, error, cargando, recargar } = useDatos(() => api('/titulos?categoria=deporte'));
+  if (error) return <ErrorConexion error={error} recargar={recargar} nav={nav} />;
+  if (!datos) return <Cargando />;
+  const abrir = (t) => nav.ir('ficha', { id: t.id });
+  const destacado = datos.find((t) => t.disponible) ?? datos[0];
+  const grupos = {};
+  for (const t of datos) (grupos[t.deporte ?? 'Otros eventos'] ??= []).push(t);
+  const filas = Object.entries(grupos);
+
+  return (
+    <ScrollView refreshControl={<RefreshControl refreshing={cargando} onRefresh={recargar} tintColor={c.acento} />}>
+      {destacado ? (
+        <View style={{ height: Math.min(height * 0.55, 500), justifyContent: 'flex-end', backgroundColor: colorDeporte(destacado.deporte) }}>
+          {destacado.fondo
+            ? <Image source={{ uri: destacado.fondo }} style={StyleSheet.absoluteFill} />
+            : <Text style={{ position: 'absolute', right: 24, top: ins.top + 50, fontSize: 110, opacity: 0.9 }}>{iconoDeporte(destacado.deporte)}</Text>}
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(11,11,15,0.3)' }]} />
+          <View style={e.degradado} />
+          <View style={{ padding: 16 }}>
+            <Text style={e.marca}>{iconoDeporte(destacado.deporte)}  DEPORTES · {(destacado.deporte ?? 'Último evento').toUpperCase()}</Text>
+            <Text style={[e.heroTitulo, { fontSize: width > 600 ? 44 : 30 }]} numberOfLines={3}>{destacado.titulo}</Text>
+            <Text style={e.heroTexto}>{destacado.sinopsis || `${datos.length} ${datos.length === 1 ? 'evento' : 'eventos'} para ver cuando quieras.`}</Text>
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
+              {destacado.disponible && <Boton texto="▶  Ver ahora" onPress={() => nav.ir('ficha', { id: destacado.id, reproducir: true })} />}
+              <Boton texto="Más información" tipo="secundario" onPress={() => abrir(destacado)} />
+            </View>
+          </View>
+          {atras && <Enfocable radio={19} onPress={nav.atras} style={[e.atrasCuenta, { position: 'absolute', top: ins.top + 10, left: 14 }]}><Text style={{ color: c.texto, fontSize: 22 }}>‹</Text></Enfocable>}
+        </View>
+      ) : (
+        <Vacio titulo="Sin eventos todavía" texto="Los partidos y eventos que se suban a la carpeta DEPORTES aparecerán aquí." />
+      )}
+      <View style={{ paddingTop: 20, paddingBottom: 30 }}>
+        {filas.map(([d, items]) => <Fila key={d} titulo={`${iconoDeporte(d)}  ${d}`} items={items} onPress={abrir} />)}
+      </View>
+    </ScrollView>
+  );
+}
 
 function CabeceraMiLista({ nav }) {
   const u = useUsuario();
@@ -452,7 +498,9 @@ export function Ficha({ nav, params }) {
   return (
     <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
       <View style={{ height: height * 0.42 }}>
-        {(t.fondo || t.poster) && <Image source={{ uri: t.fondo ?? t.poster }} style={StyleSheet.absoluteFill} />}
+        {(t.fondo || t.poster)
+          ? <Image source={{ uri: t.fondo ?? t.poster }} style={StyleSheet.absoluteFill} />
+          : esDeporte(t) && <CartelDeporte t={t} grande />}
         <View style={e.degradado} />
         <Enfocable radio={19} onPress={nav.atras} style={[e.atras, { top: ins.top + 8 }]} hitSlop={10}>
           <Text style={{ color: c.texto, fontSize: 22 }}>‹</Text>

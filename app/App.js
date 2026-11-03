@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { View, Text, BackHandler, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Inicio, Peliculas, Series, Anime, MiLista, Ficha, Cuenta, PantallaCategoria } from './src/pantallas';
+import { Inicio, Peliculas, Series, Anime, Deportes, MiLista, Ficha, Cuenta, PantallaCategoria } from './src/pantallas';
 import * as cuenta from './src/cuenta';
 import { Reproductor } from './src/Reproductor';
 import { Enfocable } from './src/componentes';
@@ -14,6 +14,7 @@ const PESTANAS = [
   ['peliculas', 'Películas', '▶', Peliculas],
   ['series', 'Series', '▤', Series],
   ['anime', 'Anime', '✦', Anime],
+  ['deportes', 'Deportes', '⚽', Deportes],
   ['lista', 'Mi lista', '♡', MiLista],
 ];
 const PANTALLAS = { ficha: Ficha, reproductor: Reproductor, cuenta: Cuenta, categoria: PantallaCategoria };

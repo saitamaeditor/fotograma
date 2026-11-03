@@ -39,6 +39,34 @@ export function Entrada({ style, onFocus, onBlur, ...props }) {
   );
 }
 
+// ---------- Deportes ----------
+export const esDeporte = (t) => (t.generos ?? []).includes('Deportes');
+const ICONOS_DEPORTE = [
+  [/f[uú]tbol|soccer|liga|champions/i, '⚽'], [/baloncesto|basket|nba/i, '🏀'], [/tenis|p[aá]del/i, '🎾'],
+  [/f[oó]rmula|f1|motor|rally/i, '🏎️'], [/moto/i, '🏍️'], [/ciclismo|tour/i, '🚴'], [/boxeo|ufc|mma|lucha/i, '🥊'],
+  [/nfl|americano/i, '🏈'], [/rugby/i, '🏉'], [/golf/i, '⛳'], [/balonmano/i, '🤾'],
+];
+export const iconoDeporte = (d = '') => ICONOS_DEPORTE.find(([re]) => re.test(d))?.[1] ?? '🏆';
+// Cada deporte tiene su color (el mismo que en la web)
+export function colorDeporte(d = 'Deportes', luz = 28) {
+  let h = 0;
+  for (const ch of d) h = (h * 31 + ch.codePointAt(0)) % 360;
+  return `hsl(${h}, 70%, ${luz}%)`;
+}
+
+// Cartel dibujado para los eventos sin imagen: color del deporte, icono y título
+export function CartelDeporte({ t, grande = false }) {
+  const d = t.deporte ?? 'Deportes';
+  return (
+    <View style={[StyleSheet.absoluteFill, { backgroundColor: colorDeporte(d), padding: grande ? 18 : 10, justifyContent: 'flex-end' }]}>
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: colorDeporte(d, 8), opacity: 0.55, top: '45%' }]} />
+      <Text style={{ position: 'absolute', top: grande ? 16 : 8, right: grande ? 18 : 8, fontSize: grande ? 54 : 28 }}>{iconoDeporte(d)}</Text>
+      <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: grande ? 12 : 9, fontWeight: '800', letterSpacing: 1 }} numberOfLines={1}>{d.toUpperCase()}</Text>
+      {!grande && <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }} numberOfLines={4}>{t.titulo}</Text>}
+    </View>
+  );
+}
+
 export function Tarjeta({ t, onPress, ancho = 120 }) {
   return (
     <Enfocable marco={false} escala={1.08} onPress={() => onPress(t)} style={({ pressed }) => [{ width: ancho, opacity: pressed ? 0.7 : 1 }]}>
@@ -47,6 +75,8 @@ export function Tarjeta({ t, onPress, ancho = 120 }) {
           <View style={[e.poster, { width: ancho, height: ancho * 1.5 }]}>
             {t.poster ? (
               <Image source={{ uri: t.poster }} style={StyleSheet.absoluteFill} />
+            ) : esDeporte(t) ? (
+              <CartelDeporte t={t} />
             ) : (
               <Text style={e.sinPoster}>{t.titulo}</Text>
             )}
@@ -54,7 +84,7 @@ export function Tarjeta({ t, onPress, ancho = 120 }) {
             {foco && <View pointerEvents="none" style={[StyleSheet.absoluteFill, e.marco, { borderRadius: 10 }]} />}
           </View>
           <Text style={[e.titulo, foco && { color: '#fff', fontWeight: '800' }]} numberOfLines={1}>{t.titulo}</Text>
-          <Text style={e.sub}>{[t.anio, ...(t.generos ?? []).slice(0, 1)].filter(Boolean).join(' · ')}</Text>
+          <Text style={e.sub}>{[t.anio, esDeporte(t) ? t.deporte ?? 'Deportes' : (t.generos ?? [])[0]].filter(Boolean).join(' · ')}</Text>
         </>
       )}
     </Enfocable>

@@ -12,7 +12,19 @@ export async function api(ruta) {
   const r = await fetch(`${base}/api${ruta}`, { headers: { 'x-morvehtv-app': Constants.expoConfig?.version ?? '' } });
   const datos = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(datos.error ?? `Error ${r.status}`);
-  return datos;
+  return conImagenesCompletas(datos);
+}
+
+// Las portadas guardadas en e2 (eventos de deportes) llegan como «/api/titulos/…/portada»:
+// les pone delante la dirección del servidor para que <Image> pueda cargarlas
+function conImagenesCompletas(v) {
+  if (Array.isArray(v)) return v.map(conImagenesCompletas);
+  if (!v || typeof v !== 'object') return v;
+  const r = {};
+  for (const [k, x] of Object.entries(v)) {
+    r[k] = (k === 'poster' || k === 'fondo' || k === 'imagen') && typeof x === 'string' && x.startsWith('/') ? `${base}${x}` : conImagenesCompletas(x);
+  }
+  return r;
 }
 
 // Mi lista y progreso: en el dispositivo y, con sesión iniciada, también en la cuenta

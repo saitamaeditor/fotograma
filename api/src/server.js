@@ -61,9 +61,11 @@ function publico(t, completo = false) {
     anio: t.anio,
     generos: t.generos ?? [],
     valoracion: t.valoracion,
-    poster: t.poster,
-    fondo: t.fondo,
+    // Los eventos de deportes pueden llevar como portada una imagen del bucket (portadaKey)
+    poster: t.poster ?? (t.portadaKey ? `/api/titulos/${t.id}/portada` : null),
+    fondo: t.fondo ?? (t.portadaKey ? `/api/titulos/${t.id}/portada` : null),
     sinopsis: t.sinopsis,
+    ...(t.deporte ? { deporte: t.deporte } : {}),
     plataformas: deTitulo(t),
     disponible: t.tipo === 'pelicula' ? Boolean(t.videoKey) : (t.temporadas ?? []).some((s) => s.episodios.some((e) => e.videoKey)),
   };
@@ -148,7 +150,8 @@ app.get('/api/inicio', (req, res) => {
 });
 
 // Portada: el destacado y una fila por categoría (Películas, Series, Documentales,
-// Docuseries, Películas anime, Series anime), cada una con lo último añadido primero
+// Docuseries, Películas anime, Series anime, Programas de TV, Novelas turcas, Deportes),
+// cada una con lo último añadido primero
 // Las apps hasta la 1.13 (no mandan x-morvehtv-app) solo conocen las seis primeras categorías:
 // sin este filtro se cerrarían al abrir «Programas de TV» o «Novelas turcas»
 const CATEGORIAS_APP_ANTIGUA = ['pelicula', 'serie', 'documental', 'docuserie', 'anime-pelicula', 'anime-serie'];
@@ -198,6 +201,13 @@ app.get('/api/titulos/:id', (req, res) => {
   if (!t) return res.status(404).json({ error: 'No existe ese título' });
   publicoCorto(res).json(enCache(`titulo:${t.id}`, () => publico(t, true)));
 });
+
+// Portada guardada en e2 (eventos de deportes): enlace firmado y temporal, como los vídeos
+app.get('/api/titulos/:id/portada', asinc(async (req, res) => {
+  const t = titulos.obtener(req.params.id);
+  if (!t?.portadaKey) return res.status(404).json({ error: 'Sin portada' });
+  res.set('Cache-Control', 'public, max-age=3600').redirect(302, await e2.urlReproduccion(t.portadaKey));
+}));
 
 function buscarVideo(t, temporada, episodio) {
   if (t.tipo === 'pelicula') return t.videoKey;
